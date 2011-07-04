@@ -2,7 +2,7 @@ from django.utils.datastructures import SortedDict
 
 from django.forms.forms import BaseForm, get_declared_fields, NON_FIELD_ERRORS
 from django.forms.widgets import media_property
-from django.core.exceptions import FieldError, ValidationError
+from django.core.exceptions import FieldError, ValidationError as DjangoValidationError
 from django.core.validators import EMPTY_VALUES
 from django.forms.util import ErrorList
 from django.forms.formsets import BaseFormSet, formset_factory
@@ -12,12 +12,13 @@ from django.forms.widgets import HiddenInput
 
 from util import MongoFormFieldGenerator
 from mongoengine.fields import ObjectIdField, ListField, ReferenceField
+from mongoengine.base import ValidationError
 
 from documentoptions import AdminOptions
 from util import init_document_options
 
 
-def construct_instance(form, instance, fields=None, exclude=None):
+def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
     """
     Constructs and returns a document instance from the bound ``form``'s
     ``cleaned_data``, but does not save the returned instance to the
@@ -68,10 +69,24 @@ def save_instance(form, instance, fields=None, fail_message='saved',
     if form.errors:
         raise ValueError("The %s could not be %s because the data didn't"
                          " validate." % (instance.__class__.__name__, fail_message))
+            
 
     if commit and hasattr(instance, 'save'):
-        instance.save()
-
+        # see BaseDocumentForm._post_clean for an explanation
+        if hasattr(form, '_delete_before_save'):
+            print "saving and ignoring stuff. cool, eh?"
+            fields = instance._fields
+            new_fields = {}
+            for n, f in fields.iteritems():
+                if not n in form._delete_before_save:
+                    new_fields[n] = f
+            instance._fields = new_fields
+            instance.save()
+            instance._fields = fields
+        else:
+            print "_delete_before_save not there..."
+            instance.save()
+        
     return instance
 
 def document_to_dict(instance, fields=None, exclude=None):
@@ -272,9 +287,8 @@ class BaseDocumentForm(BaseForm):
             # value may be included in a unique check, so cannot be excluded
             # from validation.
             else:
-                form_field = self.fields[field]
                 field_value = self.cleaned_data.get(field, None)
-                if f.required and not form_field.required and field_value in EMPTY_VALUES:
+                if not f.required and field_value in EMPTY_VALUES:
                     exclude.append(f.name)
         return exclude
 
@@ -290,12 +304,29 @@ class BaseDocumentForm(BaseForm):
         exclude = self._get_validation_exclusions()
 
         # Clean the model instance's fields.
+        to_delete = []
+        print exclude
         try:
             for f in self.instance._fields.itervalues():
+                value = getattr(self.instance, f.name)
                 if f.name not in exclude:
-                    f.validate(getattr(self.instance, f.name))
+                    f.validate(value)
+                elif value == '':
+                    # mongoengine chokes on empty strings for fields
+                    # that are not required. Clean them up here, though
+                    # is maybe not the right place :-)
+                    to_delete.append(f.name)
         except ValidationError, e:
-            self._update_errors(e.message_dict)
+            err = {f.name: [e.message]}
+            self._update_errors(err)
+        
+        # Add to_delete list to instance. It is removed in save instance
+        # The reason for this is, that the field must be deleted from the 
+        # instance before the instance gets saved. The changed instance gets 
+        # cached and the removed field is then missing on subsequent edits.
+        # To avoid that it has to be added to the instance after the instance 
+        # has been saved. Kinda ugly.
+        self._delete_before_save = to_delete 
 
         # Call the model instance's clean method.
         if hasattr(self.instance, 'clean'):

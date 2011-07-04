@@ -30,8 +30,16 @@ class MongoFormFieldGenerator(object):
             return getattr(self, 'generate_%s' % \
                 field.__class__.__name__.lower())(field_name, field)
         else:
-            raise NotImplementedError('%s is not supported by MongoForm' % \
-                field.__class__.__name__)
+            # a normal charfield is always a good guess
+            # for a widget.
+            # TODO: Somehow add a warning
+            return forms.CharField(
+                required=field.required,
+                min_length=field.min_length,
+                max_length=field.max_length,
+                initial=field.default
+            )
+            
 
     def generate_stringfield(self, field_name, field):
         if field.regex:
