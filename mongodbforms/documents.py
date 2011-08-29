@@ -74,7 +74,6 @@ def save_instance(form, instance, fields=None, fail_message='saved',
     if commit and hasattr(instance, 'save'):
         # see BaseDocumentForm._post_clean for an explanation
         if hasattr(form, '_delete_before_save'):
-            print "saving and ignoring stuff. cool, eh?"
             fields = instance._fields
             new_fields = {}
             for n, f in fields.iteritems():
@@ -84,7 +83,6 @@ def save_instance(form, instance, fields=None, fail_message='saved',
             instance.save()
             instance._fields = fields
         else:
-            print "_delete_before_save not there..."
             instance.save()
         
     return instance
@@ -305,7 +303,6 @@ class BaseDocumentForm(BaseForm):
 
         # Clean the model instance's fields.
         to_delete = []
-        print exclude
         try:
             for f in self.instance._fields.itervalues():
                 value = getattr(self.instance, f.name)
@@ -314,7 +311,7 @@ class BaseDocumentForm(BaseForm):
                 elif value == '':
                     # mongoengine chokes on empty strings for fields
                     # that are not required. Clean them up here, though
-                    # is maybe not the right place :-)
+                    # this is maybe not the right place :-)
                     to_delete.append(f.name)
         except ValidationError, e:
             err = {f.name: [e.message]}
@@ -406,14 +403,10 @@ class EmbeddedDocumentForm(BaseDocumentForm):
     
     def __init__(self, parent_document, *args, **kwargs):
         super(EmbeddedDocumentForm, self).__init__(*args, **kwargs)
-        # FIXME: Check if parent is a real object and not a type?
         self.parent_document = parent_document
         if self._meta.embedded_field is not None and \
                 not hasattr(self.parent_document, self._meta.embedded_field):
             raise FieldError("Parent document must have field %s" % self._meta.embedded_field)
-        
-        # always ignore kwargs instance
-        self.instance = self._meta.document
         
     def save(self, commit=True):
         if self.errors:
@@ -421,16 +414,10 @@ class EmbeddedDocumentForm(BaseDocumentForm):
                          " validate." % self.instance.__class__.__name__)
         
         if commit:
-            print "embedded field:"
-            print self._meta.embedded_field
-            print getattr(self.parent_document, self._meta.embedded_field)
             l = getattr(self.parent_document, self._meta.embedded_field)
-            print type(self.instance)
-            print type(self)
             l.append(self.instance)
             setattr(self.parent_document, self._meta.embedded_field, l)
-            print getattr(self.parent_document, self._meta.embedded_field)
-            self.parent_document.save()
+            self.parent_document.save() 
         
         return self.instance
 
@@ -439,7 +426,6 @@ class BaseDocumentFormSet(BaseFormSet):
     """
     A ``FormSet`` for editing a queryset and/or adding new objects to it.
     """
-    #model = None
 
     def __init__(self, data=None, files=None, auto_id='id_%s', prefix=None,
                  queryset=None, **kwargs):

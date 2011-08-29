@@ -1,6 +1,6 @@
-# django mongoforms
+# django mongodbforms
 
-This is an implementation of django's model forms that uses mongoengine documents.
+This is an implementation of django's model forms for mongoengine documents.
 
 ## Requirements
 
@@ -8,42 +8,11 @@ This is an implementation of django's model forms that uses mongoengine document
 
 ## Usage
 
-Add mongoadmin to `INSTALLED_APPS` settings
 
-	INSTALLED_APPS = (
-		...
-    	'mongoadmin',
-    	'django.contrib.admin',
-		...
-	)
-
-Add mongoadmin to `urls.py`
-
-	from django.contrib import admin
-	admin.autodiscover()
-
-	from mongoadmin import site
-
-	urlpatterns = patterns('',
-    	# Uncomment the next line to enable the admin:
-    	url(r'^admin/', include(site.urls)),
-	)
-
-The `admin.py` for your app needs to use mongoadmin instead of django's admin:
-
-	from mongoadmin import site, DocumentAdmin
-
-	from app.models import AppDocument
-	
-	class AppDocumentAdmin(DocumentAdmin):
-	    pass
-	site.register(AppDocument, AppDocumentAdmin)
-	
-Now the document should appear as usual in django's admin.
 
 ## What works and doesn't work
 
-django-mongoadmin currently only supports the most basic things and even they are not really tested.
+django-mongodbforms currently only supports the most basic things and even they are not really tested.
 
 Changelists only support basic listings you probably won't be able to use fieldlists and every other feature that django supports for changelists (search, etc.).
 
