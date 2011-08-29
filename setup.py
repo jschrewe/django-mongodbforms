@@ -3,12 +3,12 @@
 from distutils.core import setup
 
 setup(name='mongoforms',
-    version='0.1a',
+    version='0.1b',
     description="An implementation of django forms using mongoengine.",
     author='Jan Schrewe',
     author_email='jan@schafproductions.com',
     url='http://www.schafproductions.com',
-    packages=['mongoforms',],
+    packages=['mongodbforms',],
     package_data={
     },
 )
