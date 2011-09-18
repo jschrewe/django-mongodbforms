@@ -69,16 +69,14 @@ def save_instance(form, instance, fields=None, fail_message='saved',
     if form.errors:
         raise ValueError("The %s could not be %s because the data didn't"
                          " validate." % (instance.__class__.__name__, fail_message))
-            
-
+    
     if commit and hasattr(instance, 'save'):
         # see BaseDocumentForm._post_clean for an explanation
         if hasattr(form, '_delete_before_save'):
             fields = instance._fields
-            new_fields = {}
-            for n, f in fields.iteritems():
-                if not n in form._delete_before_save:
-                    new_fields[n] = f
+            new_fields = dict([(n, f) for n, f in fields.iteritems() if not n in form._delete_before_save])
+            for field in form._delete_before_save:
+                instance._changed_fields.remove(field)
             instance._fields = new_fields
             instance.save()
             instance._fields = fields

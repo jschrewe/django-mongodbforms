@@ -2,8 +2,8 @@
 
 from distutils.core import setup
 
-setup(name='mongoforms',
-    version='0.1b',
+setup(name='mongodbforms',
+    version='0.1c',
     description="An implementation of django forms using mongoengine.",
     author='Jan Schrewe',
     author_email='jan@schafproductions.com',
