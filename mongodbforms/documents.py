@@ -1,6 +1,6 @@
 from django.utils.datastructures import SortedDict
 
-from django.forms.forms import BaseForm, get_declared_fields, NON_FIELD_ERRORS
+from django.forms.forms import BaseForm, get_declared_fields, NON_FIELD_ERRORS, pretty_name
 from django.forms.widgets import media_property
 from django.core.exceptions import FieldError, ValidationError as DjangoValidationError
 from django.core.validators import EMPTY_VALUES
@@ -108,7 +108,7 @@ def document_to_dict(instance, fields=None, exclude=None):
             data[f.name] = getattr(instance, f.name)
     return data
 
-def fields_for_document(document, fields=None, exclude=None, widgets=None, formfield_callback=None):
+def fields_for_document(document, fields=None, exclude=None, widgets=None, formfield_callback=None, field_generator=MongoFormFieldGenerator):
     """
     Returns a ``SortedDict`` containing form fields for the given model.
 
@@ -121,7 +121,8 @@ def fields_for_document(document, fields=None, exclude=None, widgets=None, formf
     """
     field_list = []
     ignored = []
-    field_generator = MongoFormFieldGenerator()
+    if isinstance(field_generator, type):
+        field_generator = field_generator()
     for f in document._fields.itervalues():
         if isinstance(f, (ObjectIdField, ListField)):
             continue
@@ -158,7 +159,6 @@ class ModelFormOptions(object):
     def __init__(self, options=None):
         self.document = getattr(options, 'document', None)
         self.model = self.document
-        # TODO: Move AdminOptions to mongoforms
         if isinstance(self.model._meta, dict):
             self.model._admin_opts = AdminOptions(self.model)
             self.model._meta = self.model._admin_opts
@@ -186,9 +186,11 @@ class DocumentFormMetaclass(type):
             
         opts = new_class._meta = ModelFormOptions(getattr(new_class, 'Meta', None))
         if opts.document:
+            formfield_generator = getattr(opts, 'formfield_generator', MongoFormFieldGenerator)
+            
             # If a model is defined, extract form fields from it.
             fields = fields_for_document(opts.document, opts.fields,
-                                      opts.exclude, opts.widgets, formfield_callback)
+                            opts.exclude, opts.widgets, formfield_callback, formfield_generator)
             # make sure opts.fields doesn't specify an invalid field
             none_document_fields = [k for k, v in fields.iteritems() if not v]
             missing_fields = set(none_document_fields) - \
@@ -337,12 +339,32 @@ class BaseDocumentForm(BaseForm):
 
     def validate_unique(self):
         """
-        Calls the instance's validate_unique() method and updates the form's
-        validation errors if any were raised.
-        
-        FIXME: Does nothing at the moment.
+        Validates unique constrains on the document.
+        unique_with is not checked at the moment.
         """
-        return
+        errors = []
+        exclude = self._get_validation_exclusions()
+        for f in self.instance._fields.itervalues():
+            if f.unique and f.name not in exclude:
+                filter_kwargs = {
+                    f.name: getattr(self.instance, f.name)
+                }
+                qs = self.instance.__class__.objects().filter(**filter_kwargs)
+                # Exclude the current object from the query if we are editing an
+                # instance (as opposed to creating a new one)
+                if self.instance.pk is not None:
+                    qs = qs.filter(pk__ne=self.instance.pk)
+                if len(qs) > 0:
+                    message = _(u"%(model_name)s with this %(field_label)s already exists.") %  {
+                                'model_name': unicode(capfirst(self.instance._meta.verbose_name)),
+                                'field_label': unicode(pretty_name(f.name))
+                    }
+                    err_dict = {f.name: [message]}
+                    self._update_errors(err_dict)
+                    errors.append(err_dict)
+        
+        return errors
+                
     
 
     def save(self, commit=True):
@@ -501,84 +523,14 @@ class BaseDocumentFormSet(BaseFormSet):
         self.validate_unique()
 
     def validate_unique(self):
-        return
-#        # Collect unique_checks and date_checks to run from all the forms.
-#        all_unique_checks = set()
-#        all_date_checks = set()
-#        for form in self.forms:
-#            if not hasattr(form, 'cleaned_data'):
-#                continue
-#            exclude = form._get_validation_exclusions()
-#            unique_checks, date_checks = form.instance._get_unique_checks(exclude=exclude)
-#            all_unique_checks = all_unique_checks.union(set(unique_checks))
-#            all_date_checks = all_date_checks.union(set(date_checks))
-#
-#        errors = []
-#        # Do each of the unique checks (unique and unique_together)
-#        for uclass, unique_check in all_unique_checks:
-#            seen_data = set()
-#            for form in self.forms:
-#                # if the form doesn't have cleaned_data then we ignore it,
-#                # it's already invalid
-#                if not hasattr(form, "cleaned_data"):
-#                    continue
-#                # get data for each field of each of unique_check
-#                row_data = tuple([form.cleaned_data[field] for field in unique_check if field in form.cleaned_data])
-#                if row_data and not None in row_data:
-#                    # if we've aready seen it then we have a uniqueness failure
-#                    if row_data in seen_data:
-#                        # poke error messages into the right places and mark
-#                        # the form as invalid
-#                        errors.append(self.get_unique_error_message(unique_check))
-#                        form._errors[NON_FIELD_ERRORS] = self.error_class([self.get_form_error()])
-#                        del form.cleaned_data
-#                        break
-#                    # mark the data as seen
-#                    seen_data.add(row_data)
-#        # iterate over each of the date checks now
-#        for date_check in all_date_checks:
-#            seen_data = set()
-#            uclass, lookup, field, unique_for = date_check
-#            for form in self.forms:
-#                # if the form doesn't have cleaned_data then we ignore it,
-#                # it's already invalid
-#                if not hasattr(self, 'cleaned_data'):
-#                    continue
-#                # see if we have data for both fields
-#                if (form.cleaned_data and form.cleaned_data[field] is not None
-#                    and form.cleaned_data[unique_for] is not None):
-#                    # if it's a date lookup we need to get the data for all the fields
-#                    if lookup == 'date':
-#                        date = form.cleaned_data[unique_for]
-#                        date_data = (date.year, date.month, date.day)
-#                    # otherwise it's just the attribute on the date/datetime
-#                    # object
-#                    else:
-#                        date_data = (getattr(form.cleaned_data[unique_for], lookup),)
-#                    data = (form.cleaned_data[field],) + date_data
-#                    # if we've aready seen it then we have a uniqueness failure
-#                    if data in seen_data:
-#                        # poke error messages into the right places and mark
-#                        # the form as invalid
-#                        errors.append(self.get_date_error_message(date_check))
-#                        form._errors[NON_FIELD_ERRORS] = self.error_class([self.get_form_error()])
-#                        del form.cleaned_data
-#                        break
-#                    seen_data.add(data)
-#        if errors:
-#            raise ValidationError(errors)
-
-    def get_unique_error_message(self, unique_check):
-        if len(unique_check) == 1:
-            return ugettext("Please correct the duplicate data for %(field)s.") % {
-                "field": unique_check[0],
-            }
-        else:
-            return ugettext("Please correct the duplicate data for %(field)s, "
-                "which must be unique.") % {
-                    "field": get_text_list(unique_check, unicode(_("and"))),
-                }
-
+        errors = []
+        for form in self.forms:
+            if not hasattr(form, 'cleaned_data'):
+                continue
+            errors += form.validate_unique()
+            
+        if errors:
+            raise ValidationError(errors)
     def get_date_error_message(self, date_check):
         return ugettext("Please correct the duplicate data for %(field_name)s "
             "which must be unique for the %(lookup)s in %(date_field)s.") % {
