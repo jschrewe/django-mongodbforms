@@ -2,7 +2,6 @@ from django import forms
 
 from mongotools.forms.fields import MongoFormFieldGenerator as MongotoolsGenerator
 
-from fields import ReferenceField
 from documentoptions import AdminOptions
 
 def init_document_options(document):

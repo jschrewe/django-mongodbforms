@@ -3,10 +3,12 @@ import sys
 from django.db.models.fields import FieldDoesNotExist
 from django.db.models.loading import app_cache_ready
 
-from mongoengine.fields import ReferenceField, ObjectIdField
-from pymongo.objectid import ObjectId
+from mongoengine.fields import ReferenceField
 
 class PkWrapper(object):
+    """
+    Wraps an immutable class (like mongoengine's pk field) so that attributes can be added.
+    """
     def __init__(self, baseObject):
         self.__class__ = type(baseObject.__class__.__name__, (self.__class__, baseObject.__class__), {})
         self.__dict__ = baseObject.__dict__
@@ -15,7 +17,7 @@ class PkWrapper(object):
 class AdminOptions(object):
     """
     Used to store mongoengine's _meta dict to make the document admin
-    as compatible as possible to the django admin class.
+    as compatible as possible to django's meta class on models. 
     """
     def __init__(self, document):
         self.index_background = None
@@ -71,6 +73,12 @@ class AdminOptions(object):
         
             
     def init_pk(self):
+        """
+        Adds a wrapper around the documents pk field. The wrapper object gets the attributes
+        django expects on the pk field, like name and attname.
+        
+        The function also adds a _get_pk_val method to the document.
+        """
         if self.id_field is not None:
             try:
                 pk_field = getattr(self.document, self.id_field)
@@ -148,10 +156,7 @@ class AdminOptions(object):
         """
         Returns the requested field by name. Raises FieldDoesNotExist on error.
         """
-        for f in self.document._fields.itervalues():
-            if f.name == name:
-                return f
-        raise FieldDoesNotExist('%s has no field named %r' % (self.object_name, name))
+        return self.get_field_by_name(name)
 
     def __getitem__(self, key):
         return self.meta[key]
