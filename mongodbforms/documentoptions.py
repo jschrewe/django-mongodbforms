@@ -156,7 +156,7 @@ class AdminOptions(object):
         """
         Returns the requested field by name. Raises FieldDoesNotExist on error.
         """
-        return self.get_field_by_name(name)
+        return self.get_field_by_name(name)[0]
 
     def __getitem__(self, key):
         return self.meta[key]

@@ -17,13 +17,13 @@ def get_document_options(document):
 class MongoFormFieldGenerator(MongotoolsGenerator):
     """This class generates Django form-fields for mongoengine-fields."""
     
-    def generate(self, field_name, field):
+    def generate(self, field_name, field, **kwargs):
         """Tries to lookup a matching formfield generator (lowercase 
         field-classname) and raises a NotImplementedError of no generator
         can be found.
         """
         try:
-            return super(MongoFormFieldGenerator, self).generate(field_name, field)
+            return super(MongoFormFieldGenerator, self).generate(field_name, field, **kwargs)
         except NotImplementedError:
             # a normal charfield is always a good guess
             # for a widget.
