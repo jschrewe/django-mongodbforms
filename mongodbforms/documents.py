@@ -1,26 +1,25 @@
 import os
 import itertools
+import gridfs
 
 from django.utils.datastructures import SortedDict
 
 from django.forms.forms import BaseForm, get_declared_fields, NON_FIELD_ERRORS, pretty_name
 from django.forms.widgets import media_property
-from django.core.exceptions import FieldError, ValidationError as DjangoValidationError
+from django.core.exceptions import FieldError
 from django.core.validators import EMPTY_VALUES
 from django.forms.util import ErrorList
 from django.forms.formsets import BaseFormSet, formset_factory
 from django.utils.translation import ugettext_lazy as _, ugettext
-from django.utils.text import get_text_list, capfirst
-from django.forms.widgets import HiddenInput
+from django.utils.text import capfirst
 
-from util import MongoFormFieldGenerator
 from mongoengine.fields import ObjectIdField, ListField
 from mongoengine.base import ValidationError
 from mongoengine.connection import _get_db
 
+from util import MongoFormFieldGenerator
 from documentoptions import AdminOptions
 
-import gridfs
 
 def _get_unique_filename(name):
     fs = gridfs.GridFS(_get_db())
@@ -67,7 +66,6 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
         filename = _get_unique_filename(upload.name)
         upload.file.seek(0)
         field.replace(upload, content_type=upload.content_type, filename=filename)
-        field.filename = 'blah blup'
         setattr(instance, f.name, field)
 
     return instance
