@@ -1,3 +1,6 @@
+import os
+import itertools
+
 from django.utils.datastructures import SortedDict
 
 from django.forms.forms import BaseForm, get_declared_fields, NON_FIELD_ERRORS, pretty_name
@@ -11,12 +14,22 @@ from django.utils.text import get_text_list, capfirst
 from django.forms.widgets import HiddenInput
 
 from util import MongoFormFieldGenerator
-from mongoengine.fields import ObjectIdField, ListField, ReferenceField
+from mongoengine.fields import ObjectIdField, ListField
 from mongoengine.base import ValidationError
+from mongoengine.connection import _get_db
 
 from documentoptions import AdminOptions
-from util import init_document_options
 
+import gridfs
+
+def _get_unique_filename(name):
+    fs = gridfs.GridFS(_get_db())
+    file_root, file_ext = os.path.splitext(name)
+    count = itertools.count(1)
+    while fs.exists(filename=name):
+        # file_ext includes the dot.
+        name = os.path.join("%s_%s%s" % (file_root, count.next(), file_ext))
+    return name
 
 def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
     """
@@ -27,8 +40,8 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
     from mongoengine.fields import FileField
     cleaned_data = form.cleaned_data
     file_field_list = []
+    
     # check wether object is instantiated
-    # TODO: IS there a better way to do this?
     if isinstance(instance, type):
         instance = instance()
         
@@ -49,7 +62,13 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
             setattr(instance, f.name, cleaned_data[f.name])
 
     for f in file_field_list:
-        f.save_form_data(instance, cleaned_data[f.name])
+        upload = cleaned_data[f.name]
+        field = getattr(instance, f.name)
+        filename = _get_unique_filename(upload.name)
+        upload.file.seek(0)
+        field.replace(upload, content_type=upload.content_type, filename=filename)
+        field.filename = 'blah blup'
+        setattr(instance, f.name, field)
 
     return instance
 
