@@ -5,14 +5,27 @@ from django.db.models.loading import app_cache_ready
 
 from mongoengine.fields import ReferenceField
 
+#class PkWrapper(object):
+#    """
+#    Wraps an immutable class (like mongoengine's pk field) so that attributes can be added.
+#    """
+#    def __init__(self, baseObject):
+#        self.__class__ = type(baseObject.__class__.__name__, (self.__class__, baseObject.__class__), {})
+#        self.__dict__ = baseObject.__dict__
+
 class PkWrapper(object):
-    """
-    Wraps an immutable class (like mongoengine's pk field) so that attributes can be added.
-    """
-    def __init__(self, baseObject):
-        self.__class__ = type(baseObject.__class__.__name__, (self.__class__, baseObject.__class__), {})
-        self.__dict__ = baseObject.__dict__
- 
+    def __init__(self, wrapped):
+        self.obj = wrapped
+    
+    def __getattr__(self, attr):
+        if attr in dir(self.baseObject):
+            return getattr(self.baseObject, attr)
+        raise AttributeError
+        
+    def __setattr__(self, attr, value):
+        if attr != 'obj' and hasattr(self.obj, attr):
+            setattr(self.obj, attr, value)
+        super(PkWrapper, self).__setattr__(attr, value)
 
 class AdminOptions(object):
     """
@@ -45,6 +58,9 @@ class AdminOptions(object):
         self.meta = document._meta
         
         self.init_from_meta()
+        
+        self.pk_name = self.id_field
+        
         self.init_pk()
         
     def init_from_meta(self):
@@ -69,8 +85,13 @@ class AdminOptions(object):
         
         if self.verbose_name_plural is None:
             self.verbose_name_plural = "%ss" % self.verbose_name
-        
-        
+    
+    @property    
+    def pk(self):
+        if not hasattr(self._pk, 'attname'):
+            self.init_pk()
+        return self._pk
+            
             
     def init_pk(self):
         """
@@ -82,15 +103,10 @@ class AdminOptions(object):
         if self.id_field is not None:
             try:
                 pk_field = getattr(self.document, self.id_field)
-                try:
-                    self.pk = PkWrapper(pk_field)
-                except TypeError:
-                    self.pk = pk_field
-                    
-                self.pk.name = self.id_field
-                self.pk.attname = self.id_field
-
-                self.pk_name = self.id_field
+                self._pk = PkWrapper(pk_field)
+                self._pk.name = self.id_field
+                self._pk.attname = self.id_field
+                self._pk_name = self.id_field
                 
                 from mongoadmin.util import patch_document
                 

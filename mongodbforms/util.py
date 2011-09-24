@@ -28,16 +28,17 @@ class MongoFormFieldGenerator(MongotoolsGenerator):
             # a normal charfield is always a good guess
             # for a widget.
             # TODO: Somehow add a warning
-            kwargs = {'required': field.required}
+            defaults = {'required': field.required}
             
             if hasattr(field, 'min_length'):
-                kwargs['min_length'] = field.min_length
+                defaults['min_length'] = field.min_length
                 
             if hasattr(field, 'max_length'):
-                kwargs['max_length'] = field.max_length
+                defaults['max_length'] = field.max_length
             
             if hasattr(field, 'default'):
-                kwargs['initial'] = field.default
-            
-            return forms.CharField(kwargs)
+                defaults['initial'] = field.default
+                
+            defaults.update(kwargs)
+            return forms.CharField(**kwargs)
 
