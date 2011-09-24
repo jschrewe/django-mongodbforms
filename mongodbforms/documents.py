@@ -660,7 +660,7 @@ class BaseInlineDocumentFormSet(BaseDocumentFormSet):
         if form._meta.fields:
             if isinstance(form._meta.fields, tuple):
                 form._meta.fields = list(form._meta.fields)
-            form._meta.fields.append(self.fk.name)
+            #form._meta.fields.append(self.fk.name)
 
     def get_unique_error_message(self, unique_check):
         unique_check = [field for field in unique_check if field != self.fk.name]
