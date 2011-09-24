@@ -125,7 +125,8 @@ def document_to_dict(instance, fields=None, exclude=None):
             data[f.name] = getattr(instance, f.name)
     return data
 
-def fields_for_document(document, fields=None, exclude=None, widgets=None, formfield_callback=None, field_generator=MongoFormFieldGenerator):
+def fields_for_document(document, fields=None, exclude=None, widgets=None, \
+                        formfield_callback=None, field_generator=MongoFormFieldGenerator):
     """
     Returns a ``SortedDict`` containing form fields for the given model.
 
@@ -140,7 +141,14 @@ def fields_for_document(document, fields=None, exclude=None, widgets=None, formf
     ignored = []
     if isinstance(field_generator, type):
         field_generator = field_generator()
-    for f in document._fields.itervalues():
+    
+    # This is actually a bad way to sort the fields, but the fields keep the order
+    # they were defined on he document (at least with cPython) and I can't see 
+    # any other way for now. Oh, yeah, it works because we sort on the memory address
+    # and hope that the earlier fields have a lower address.
+    sorted_fields = sorted(document._fields.values(), key=lambda field: field.__hash__())
+    
+    for f in sorted_fields:
         if isinstance(f, (ObjectIdField, ListField)):
             continue
         if fields is not None and not f.name in fields:
@@ -162,6 +170,7 @@ def fields_for_document(document, fields=None, exclude=None, widgets=None, formf
             field_list.append((f.name, formfield))
         else:
             ignored.append(f.name)
+
     field_dict = SortedDict(field_list)
     if fields:
         field_dict = SortedDict(
