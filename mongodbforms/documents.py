@@ -63,10 +63,15 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
     for f in file_field_list:
         upload = cleaned_data[f.name]
         field = getattr(instance, f.name)
-        filename = _get_unique_filename(upload.name)
-        upload.file.seek(0)
-        field.replace(upload, content_type=upload.content_type, filename=filename)
-        setattr(instance, f.name, field)
+        try:
+            upload.file.seek(0)
+            filename = _get_unique_filename(upload.name)
+            field.replace(upload, content_type=upload.content_type, filename=filename)
+            setattr(instance, f.name, field)
+        except AttributeError:
+            # we should only reach here if there is already a file uploaded
+            # and the form is edited again. So we do nothing.
+            pass
 
     return instance
 
