@@ -18,8 +18,8 @@ class PkWrapper(object):
         self.obj = wrapped
     
     def __getattr__(self, attr):
-        if attr in dir(self.baseObject):
-            return getattr(self.baseObject, attr)
+        if attr in dir(self.obj):
+            return getattr(self.obj, attr)
         raise AttributeError
         
     def __setattr__(self, attr, value):
