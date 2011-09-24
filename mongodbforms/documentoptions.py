@@ -108,14 +108,12 @@ class AdminOptions(object):
                 self._pk.attname = self.id_field
                 self._pk_name = self.id_field
                 
+                self.document._pk_val = getattr(self.document, self.pk_name)
+                # avoid circular import
                 from mongoadmin.util import patch_document
-                
                 def _get_pk_val(self):
                     return self._pk_val
-                
                 patch_document(_get_pk_val, self.document)
-                
-                self.document._pk_val = getattr(self.document, self.pk_name)
             except AttributeError:
                 return      
                 
