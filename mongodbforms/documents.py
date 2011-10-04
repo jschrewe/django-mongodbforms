@@ -13,7 +13,7 @@ from django.forms.formsets import BaseFormSet, formset_factory
 from django.utils.translation import ugettext_lazy as _, ugettext
 from django.utils.text import capfirst
 
-from mongoengine.fields import ObjectIdField, ListField
+from mongoengine.fields import ObjectIdField, ListField, ReferenceField
 from mongoengine.base import ValidationError
 from mongoengine.connection import _get_db
 
@@ -62,6 +62,8 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
 
     for f in file_field_list:
         upload = cleaned_data[f.name]
+        if upload is None:
+            continue
         field = getattr(instance, f.name)
         try:
             upload.file.seek(0)
@@ -69,10 +71,11 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
             field.replace(upload, content_type=upload.content_type, filename=filename)
             setattr(instance, f.name, field)
         except AttributeError:
-            # we should only reach here if there is already a file uploaded
-            # and the form is edited again. So we do nothing.
-            pass
-
+            # file was already uploaded and not changed during edit.
+            # upload is already the gridfsproxy object we need.
+            upload.get()
+            setattr(instance, f.name, upload)
+            
     return instance
 
 
@@ -154,7 +157,9 @@ def fields_for_document(document, fields=None, exclude=None, widgets=None, \
     sorted_fields = sorted(document._fields.values(), key=lambda field: field.__hash__())
     
     for f in sorted_fields:
-        if isinstance(f, (ObjectIdField, ListField)):
+        if isinstance(f, ObjectIdField):
+            continue
+        if isinstance(f, ListField) and not isinstance(f.field, ReferenceField):
             continue
         if fields is not None and not f.name in fields:
             continue
