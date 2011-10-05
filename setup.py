@@ -3,7 +3,7 @@
 from distutils.core import setup
 
 setup(name='mongodbforms',
-    version='0.1e',
+    version='0.1f',
     description="An implementation of django forms using mongoengine.",
     author='Jan Schrewe',
     author_email='jan@schafproductions.com',
