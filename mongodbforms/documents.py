@@ -444,7 +444,11 @@ def documentform_factory(document, form=DocumentForm, fields=None, exclude=None,
     Meta = type('Meta', parent, attrs)
 
     # Give this new form class a reasonable name.
-    class_name = document.__class__.__name__ + 'Form'
+    if isinstance(document, type):
+        doc_inst = document()
+    else:
+        doc_inst = document
+    class_name = doc_inst.__class__.__name__ + 'Form'
 
     # Class attributes for the new form class.
     form_class_attrs = {
@@ -609,21 +613,20 @@ class BaseDocumentFormSet(BaseFormSet):
 #            #form.fields[self._pk_field.name] = ModelChoiceField(qs, initial=pk_value, required=False, widget=HiddenInput)
         super(BaseDocumentFormSet, self).add_fields(form, index)
 
-def documentformset_factory(model, form=DocumentForm, formfield_callback=None,
+def documentformset_factory(document, form=DocumentForm, formfield_callback=None,
                          formset=BaseDocumentFormSet,
                          extra=1, can_delete=False, can_order=False,
                          max_num=None, fields=None, exclude=None):
     """
     Returns a FormSet class for the given Django model class.
     """
-    form = documentform_factory(model, form=form, fields=fields, exclude=exclude,
+    form = documentform_factory(document, form=form, fields=fields, exclude=exclude,
                              formfield_callback=formfield_callback)
     FormSet = formset_factory(form, formset, extra=extra, max_num=max_num,
                               can_order=can_order, can_delete=can_delete)
-    FormSet.model = model
+    FormSet.model = document
+    FormSet.document = document
     return FormSet
-
-
 
 class BaseInlineDocumentFormSet(BaseDocumentFormSet):
     """
@@ -632,38 +635,16 @@ class BaseInlineDocumentFormSet(BaseDocumentFormSet):
     self.instance -> the document containing the inline objects
     """
     def __init__(self, data=None, files=None, instance=None,
-                 save_as_new=False, prefix=None, queryset=None):
+                 save_as_new=False, prefix=None, queryset=[], **kwargs):
         self.instance = instance
         self.save_as_new = save_as_new
         
-        if queryset is None:
-            queryset = self.document._default_manager
-            
-        try:
-            qs = queryset.filter(**{self.fk.name: self.instance})
-        except AttributeError:
-            # we received a list (hopefully)
-            print "FIXME: a real queryset would be nice"
-            qs = queryset
-        super(BaseInlineDocumentFormSet, self).__init__(data, files, prefix=prefix, queryset=qs)
+        super(BaseInlineDocumentFormSet, self).__init__(data, files, prefix=prefix, queryset=queryset, **kwargs)
 
     def initial_form_count(self):
         if self.save_as_new:
             return 0
         return super(BaseInlineDocumentFormSet, self).initial_form_count()
-
-
-    def _construct_form(self, i, **kwargs):
-        form = super(BaseInlineDocumentFormSet, self)._construct_form(i, **kwargs)
-        if self.save_as_new:
-            # Remove the primary key from the form's data, we are only
-            # creating new instances
-            form.data[form.add_prefix(self._pk_field.name)] = None
-
-            # Remove the foreign key from the form's data
-            form.data[form.add_prefix(self.fk.name)] = None
-
-        return form
 
     #@classmethod
     def get_default_prefix(cls):
@@ -686,8 +667,8 @@ class BaseInlineDocumentFormSet(BaseDocumentFormSet):
         return super(BaseInlineDocumentFormSet, self).get_unique_error_message(unique_check)
 
 
-def inlineformset_factory(parent_document, document, form=DocumentForm,
-                          formset=BaseInlineDocumentFormSet, fk_name=None,
+def inlineformset_factory(document, form=DocumentForm,
+                          formset=BaseInlineDocumentFormSet,
                           fields=None, exclude=None,
                           extra=1, can_order=False, can_delete=True, max_num=None,
                           formfield_callback=None):
@@ -711,3 +692,40 @@ def inlineformset_factory(parent_document, document, form=DocumentForm,
     FormSet = documentformset_factory(document, **kwargs)
     return FormSet
 
+class EmbeddedDocumentFormSet(BaseInlineDocumentFormSet):
+    def __init__(self, parent_document=None, data=None, files=None, instance=None,
+                 save_as_new=False, prefix=None, queryset=[], **kwargs):
+        self.parent_document = parent_document
+        super(EmbeddedDocumentFormSet, self).__init__(data, files, instance, save_as_new, prefix, queryset, **kwargs)
+        
+    def _construct_form(self, i, **kwargs):
+        defaults = {'parent_document': self.parent_document}
+        defaults.update(kwargs)
+        form = super(BaseDocumentFormSet, self)._construct_form(i, **defaults)
+        return form
+
+def embeddedformset_factory(document, parent_document, form=EmbeddedDocumentForm,
+                          formset=EmbeddedDocumentFormSet,
+                          fields=None, exclude=None,
+                          extra=1, can_order=False, can_delete=True, max_num=None,
+                          formfield_callback=None):
+    """
+    Returns an ``InlineFormSet`` for the given kwargs.
+
+    You must provide ``fk_name`` if ``model`` has more than one ``ForeignKey``
+    to ``parent_model``.
+    """
+    kwargs = {
+        'form': form,
+        'formfield_callback': formfield_callback,
+        'formset': formset,
+        'extra': extra,
+        'can_delete': can_delete,
+        'can_order': can_order,
+        'fields': fields,
+        'exclude': exclude,
+        'max_num': max_num,
+    }
+    FormSet = inlineformset_factory(document, **kwargs)
+    FormSet.parent_document = parent_document
+    return FormSet
