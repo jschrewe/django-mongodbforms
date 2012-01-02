@@ -8,7 +8,6 @@ Requirements
 ------------
 
 -  `mongoengine <http://mongoengine.org/>`_
--  `mongotools <https://github.com/wpjunior/django-mongotools>`_
 
 Usage
 -----
