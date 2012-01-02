@@ -1,16 +1,11 @@
-from django import forms
-
-from mongotools.forms.fields import MongoFormFieldGenerator as MongotoolsGenerator
-
-from documentoptions import AdminOptions
+from documentoptions import DocumentMetaWrapper
 
 def init_document_options(document):
-    if not hasattr(document, '_admin_opts') or not isinstance(document._admin_opts, AdminOptions):
-        document._admin_opts = AdminOptions(document)
-    if not isinstance(document._meta, AdminOptions):
+    if not hasattr(document, '_admin_opts') or not isinstance(document._admin_opts, DocumentMetaWrapper):
+        document._admin_opts = DocumentMetaWrapper(document)
+    if not isinstance(document._meta, DocumentMetaWrapper):
         document._meta = document._admin_opts
     return document
 
 def get_document_options(document):
-    return AdminOptions(document)
-
+    return DocumentMetaWrapper(document)
