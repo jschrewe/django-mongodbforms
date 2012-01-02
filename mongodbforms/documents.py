@@ -17,8 +17,8 @@ from mongoengine.fields import ObjectIdField, ListField, ReferenceField
 from mongoengine.base import ValidationError
 from mongoengine.connection import _get_db
 
-from util import MongoFormFieldGenerator
-from documentoptions import AdminOptions
+from fieldgenerator import MongoDefaultFormFieldGenerator
+from documentoptions import DocumentMetaWrapper
 
 
 def _get_unique_filename(name):
@@ -134,7 +134,7 @@ def document_to_dict(instance, fields=None, exclude=None):
     return data
 
 def fields_for_document(document, fields=None, exclude=None, widgets=None, \
-                        formfield_callback=None, field_generator=MongoFormFieldGenerator):
+                        formfield_callback=None, field_generator=MongoDefaultFormFieldGenerator):
     """
     Returns a ``SortedDict`` containing form fields for the given model.
 
@@ -195,13 +195,15 @@ class ModelFormOptions(object):
     def __init__(self, options=None):
         self.document = getattr(options, 'document', None)
         self.model = self.document
-        if self.model is not None and isinstance(self.model._meta, dict):
-            self.model._admin_opts = AdminOptions(self.model)
-            self.model._meta = self.model._admin_opts
+        # set up the document meta wrapper if document meta is a dict
+        if self.document is not None and isinstance(self.document._meta, dict):
+            self.document._admin_opts = DocumentMetaWrapper(self.document)
+            self.document._meta = self.document._admin_opts
         self.fields = getattr(options, 'fields', None)
         self.exclude = getattr(options, 'exclude', None)
         self.widgets = getattr(options, 'widgets', None)
         self.embedded_field = getattr(options, 'embedded_field_name', None)
+        self.formfield_generator = getattr(options, 'formfield_generator', None)
         
         
 class DocumentFormMetaclass(type):
@@ -222,7 +224,7 @@ class DocumentFormMetaclass(type):
         
         opts = new_class._meta = ModelFormOptions(getattr(new_class, 'Meta', None))
         if opts.document:
-            formfield_generator = getattr(opts, 'formfield_generator', MongoFormFieldGenerator)
+            formfield_generator = getattr(opts, 'formfield_generator', MongoDefaultFormFieldGenerator)
             
             # If a model is defined, extract form fields from it.
             fields = fields_for_document(opts.document, opts.fields,
@@ -474,6 +476,7 @@ class EmbeddedDocumentForm(BaseDocumentForm):
             raise ValueError("The %s could not be saved because the data didn't"
                          " validate." % self.instance.__class__.__name__)
         
+        
         if commit:
             l = getattr(self.parent_document, self._meta.embedded_field)
             l.append(self.instance)
@@ -512,24 +515,6 @@ class BaseDocumentFormSet(BaseFormSet):
         if not (self.data or self.files):
             return len(self.get_queryset())
         return super(BaseDocumentFormSet, self).initial_form_count()
-
-    def _construct_form(self, i, **kwargs):
-        #if self.is_bound and i < self.initial_form_count():
-            # Import goes here instead of module-level because importing
-            # django.db has side effects.
-            #from django.db import connections
-#            pk_key = "%s-%s" % (self.add_prefix(i), self.model._meta.pk.name)
-#            pk = self.data[pk_key]
-#            pk_field = self.model._meta.pk
-#            pk = pk_field.get_db_prep_lookup('exact', pk,
-#                connection=connections[self.get_queryset().db])
-#            if isinstance(pk, list):
-#                pk = pk[0]
-#            kwargs['instance'] = self._existing_object(pk)
-        #if i < self.initial_form_count() and not kwargs.get('instance'):
-        #    kwargs['instance'] = self.get_queryset()[i]
-        form = super(BaseDocumentFormSet, self)._construct_form(i, **kwargs)
-        return form
 
     def get_queryset(self):
         return self._queryset
@@ -581,37 +566,6 @@ class BaseDocumentFormSet(BaseFormSet):
 
     def get_form_error(self):
         return ugettext("Please correct the duplicate values below.")
-
-    def add_fields(self, form, index):
-#        """Add a hidden field for the object's primary key."""
-#        from django.db.models import AutoField, OneToOneField, ForeignKey
-#        self._pk_field = pk = self.model._meta.pk
-#        # If a pk isn't editable, then it won't be on the form, so we need to
-#        # add it here so we can tell which object is which when we get the
-#        # data back. Generally, pk.editable should be false, but for some
-#        # reason, auto_created pk fields and AutoField's editable attribute is
-#        # True, so check for that as well.
-#        def pk_is_not_editable(pk):
-#            return ((not pk.editable) or (pk.auto_created or isinstance(pk, AutoField))
-#                or (pk.rel and pk.rel.parent_link and pk_is_not_editable(pk.rel.to._meta.pk)))
-#        if pk_is_not_editable(pk) or pk.name not in form.fields:
-#            if form.is_bound:
-#                pk_value = form.instance.pk
-#            else:
-#                try:
-#                    if index is not None:
-#                        pk_value = self.get_queryset()[index].pk
-#                    else:
-#                        pk_value = None
-#                except IndexError:
-#                    pk_value = None
-#            if isinstance(pk, OneToOneField) or isinstance(pk, ForeignKey):
-#                qs = pk.rel.to._default_manager.get_query_set()
-#            else:
-#                qs = self.model._default_manager.get_query_set()
-#            qs = qs.using(form.instance._state.db)
-#            #form.fields[self._pk_field.name] = ModelChoiceField(qs, initial=pk_value, required=False, widget=HiddenInput)
-        super(BaseDocumentFormSet, self).add_fields(form, index)
 
 def documentformset_factory(document, form=DocumentForm, formfield_callback=None,
                          formset=BaseDocumentFormSet,

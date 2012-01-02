@@ -1,17 +1,8 @@
 import sys
 
 from django.db.models.fields import FieldDoesNotExist
-from django.db.models.loading import app_cache_ready
 
 from mongoengine.fields import ReferenceField
-
-#class PkWrapper(object):
-#    """
-#    Wraps an immutable class (like mongoengine's pk field) so that attributes can be added.
-#    """
-#    def __init__(self, baseObject):
-#        self.__class__ = type(baseObject.__class__.__name__, (self.__class__, baseObject.__class__), {})
-#        self.__dict__ = baseObject.__dict__
 
 class PkWrapper(object):
     def __init__(self, wrapped):
@@ -27,33 +18,33 @@ class PkWrapper(object):
             setattr(self.obj, attr, value)
         super(PkWrapper, self).__setattr__(attr, value)
 
-class AdminOptions(object):
+class DocumentMetaWrapper(object):
     """
     Used to store mongoengine's _meta dict to make the document admin
     as compatible as possible to django's meta class on models. 
     """
+    index_background = None
+    collection = None
+    queryset_class = None 
+    allow_inheritance = None
+    max_size = None
+    ordering = None
+    id_field = None
+    indexes = None
+    index_drop_dups = None
+    unique_indexes = None
+    app_label = None
+    max_documents = None
+    module_name = None
+    index_opts = None
+    verbose_name = None
+    verbose_name_plural = None
+    has_auto_field = False
+    proxy = []
+    parents = {}
+    many_to_many = []
+    
     def __init__(self, document):
-        self.index_background = None
-        self.collection = None
-        self.queryset_class = None 
-        self.allow_inheritance = None
-        self.max_size = None
-        self.ordering = None
-        self.id_field = None
-        self.indexes = None
-        self.index_drop_dups = None
-        self.unique_indexes = None
-        self.app_label = None
-        self.max_documents = None
-        self.module_name = None
-        self.index_opts = None
-        self.verbose_name = None
-        self.verbose_name_plural = None
-        self.has_auto_field = False
-        self.proxy = []
-        self.parents = {}
-        self.many_to_many = []
-        
         self.document = document
         self.meta = document._meta
         
@@ -100,22 +91,24 @@ class AdminOptions(object):
         
         The function also adds a _get_pk_val method to the document.
         """
-        if self.id_field is not None:
-            try:
-                pk_field = getattr(self.document, self.id_field)
-                self._pk = PkWrapper(pk_field)
-                self._pk.name = self.id_field
-                self._pk.attname = self.id_field
-                self._pk_name = self.id_field
+        if self.id_field is None:
+            return
+        
+        try:
+            pk_field = getattr(self.document, self.id_field)
+            self._pk = PkWrapper(pk_field)
+            self._pk.name = self.id_field
+            self._pk.attname = self.id_field
+            self._pk_name = self.id_field
                 
-                self.document._pk_val = getattr(self.document, self.pk_name)
-                # avoid circular import
-                from mongoadmin.util import patch_document
-                def _get_pk_val(self):
-                    return self._pk_val
-                patch_document(_get_pk_val, self.document)
-            except AttributeError:
-                return      
+            self.document._pk_val = getattr(self.document, self.pk_name)
+            # avoid circular import
+            from mongoadmin.util import patch_document
+            def _get_pk_val(self):
+                return self._pk_val
+            patch_document(_get_pk_val, self.document)
+        except AttributeError:
+            return      
                 
     def get_add_permission(self):
         return 'add_%s' % self.object_name.lower()
@@ -159,7 +152,7 @@ class AdminOptions(object):
         for f in self.document._fields.itervalues():
             if isinstance(f, ReferenceField):
                 model = f.document_type
-                model._admin_opts = AdminOptions(model)
+                model._admin_opts = DocumentMetaWrapper(model)
                 self._field_cache[model._admin_opts.module_name] = (f, model, False, False)
             else:
                 self._field_cache[f.name] = (f, None, True, False)
