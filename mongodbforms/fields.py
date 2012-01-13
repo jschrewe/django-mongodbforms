@@ -6,6 +6,7 @@ Wilson Júnior (wilsonpjunior@gmail.com).
 
 from django import forms
 from django.core.validators import EMPTY_VALUES
+from django.utils.translation import ugettext as _
 from pymongo.errors import InvalidId
 from pymongo.objectid import ObjectId
 from django.utils.encoding import smart_unicode, force_unicode
