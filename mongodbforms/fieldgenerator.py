@@ -18,14 +18,14 @@ class MongoFormFieldGenerator(object):
     """This class generates Django form-fields for mongoengine-fields."""
 
     def generate(self, field, **kwargs):
-        """Tries to lookup a matching formfield generator (lowercase 
+        """Tries to lookup a matching formfield generator (lowercase
         field-classname) and raises a NotImplementedError of no generator
         can be found.
         """
         field_name = field.__class__.__name__.lower()
         if hasattr(self, 'generate_%s' % field_name):
             return getattr(self, 'generate_%s' % field_name)(field, **kwargs)
-        
+
         for cls in field.__class__.__bases__:
             cls_name = cls.__name__.lower()
             if hasattr(self, 'generate_%s' % cls_name):
@@ -33,7 +33,7 @@ class MongoFormFieldGenerator(object):
 
         raise NotImplementedError('%s is not supported by MongoForm' % \
                                           field.__class__.__name__)
-                
+
     def get_field_choices(self, field, include_blank=True,
                           blank_choice=BLANK_CHOICE_DASH):
         first_choice = include_blank and blank_choice or []
@@ -73,7 +73,7 @@ class MongoFormFieldGenerator(object):
 
         if field.max_length and not field.choices:
             defaults['max_length'] = field.max_length
-            
+
         if field.max_length is None and not field.choices:
             defaults['widget'] = forms.Textarea
 
@@ -86,7 +86,7 @@ class MongoFormFieldGenerator(object):
 
             if not field.required:
                 defaults['empty_value'] = None
-                
+
         defaults.update(kwargs)
         return form_class(**defaults)
 
@@ -97,9 +97,9 @@ class MongoFormFieldGenerator(object):
             'max_length': field.max_length,
             'initial': field.default,
             'label': self.get_field_label(field),
-            'help_text': self.get_field_help_text(field)    
+            'help_text': self.get_field_help_text(field)
         }
-        
+
         defaults.update(kwargs)
         return forms.EmailField(**defaults)
 
@@ -112,7 +112,7 @@ class MongoFormFieldGenerator(object):
             'label': self.get_field_label(field),
             'help_text':  self.get_field_help_text(field)
         }
-        
+
         defaults.update(kwargs)
         return forms.URLField(**defaults)
 
@@ -125,9 +125,9 @@ class MongoFormFieldGenerator(object):
                 'initial': field.default,
                 'label': self.get_field_label(field),
                 'choices': self.get_field_choices(field),
-                'help_text': self.get_field_help_text(field)        
+                'help_text': self.get_field_help_text(field)
             }
-            
+
             defaults.update(kwargs)
             return forms.TypedChoiceField(**defaults)
         else:
@@ -137,9 +137,9 @@ class MongoFormFieldGenerator(object):
                 'max_value': field.max_value,
                 'initial': field.default,
                 'label': self.get_field_label(field),
-                'help_text': self.get_field_help_text(field)      
+                'help_text': self.get_field_help_text(field)
             }
-            
+
             defaults.update(kwargs)
             return forms.IntegerField(**defaults)
 
@@ -178,9 +178,9 @@ class MongoFormFieldGenerator(object):
                 'initial': field.default,
                 'label': self.get_field_label(field),
                 'choices': self.get_field_choices(field),
-                'help_text': self.get_field_help_text(field)        
+                'help_text': self.get_field_help_text(field)
             }
-            
+
             defaults.update(kwargs)
             return forms.TypedChoiceField(**defaults)
         else:
@@ -188,9 +188,9 @@ class MongoFormFieldGenerator(object):
                 'required': field.required,
                 'initial': field.default,
                 'label': self.get_field_label(field),
-                'help_text': self.get_field_help_text(field)     
+                'help_text': self.get_field_help_text(field)
                 }
-            
+
             defaults.update(kwargs)
             return forms.BooleanField(**defaults)
 
@@ -200,7 +200,7 @@ class MongoFormFieldGenerator(object):
             'initial': field.default,
             'label': self.get_field_label(field),
         }
-        
+
         defaults.update(kwargs)
         return forms.DateTimeField(**defaults)
 
@@ -210,7 +210,7 @@ class MongoFormFieldGenerator(object):
             'help_text': self.get_field_help_text(field),
             'required': field.required
         }
-        
+
         defaults.update(kwargs)
         return ReferenceField(field.document_type.objects, **defaults)
 
@@ -221,9 +221,9 @@ class MongoFormFieldGenerator(object):
                 'required': field.required,
                 'label': self.get_field_label(field),
                 'help_text': self.get_field_help_text(field),
-                'widget': forms.CheckboxSelectMultiple     
+                'widget': forms.CheckboxSelectMultiple
             }
-            
+
             defaults.update(kwargs)
             return forms.MultipleChoiceField(**defaults)
         elif isinstance(field.field, MongoReferenceField):
@@ -232,19 +232,19 @@ class MongoFormFieldGenerator(object):
                 'help_text': self.get_field_help_text(field),
                 'required': field.required
             }
-        
+
             defaults.update(kwargs)
             f = DocumentMultipleChoiceField(field.field.document_type.objects, **defaults)
             return f
-        
+
     def generate_filefield(self, field, **kwargs):
         return forms.FileField(**kwargs)
-    
+
 class MongoDefaultFormFieldGenerator(MongoFormFieldGenerator):
     """This class generates Django form-fields for mongoengine-fields."""
-    
+
     def generate(self, field, **kwargs):
-        """Tries to lookup a matching formfield generator (lowercase 
+        """Tries to lookup a matching formfield generator (lowercase
         field-classname) and raises a NotImplementedError of no generator
         can be found.
         """
@@ -255,15 +255,15 @@ class MongoDefaultFormFieldGenerator(MongoFormFieldGenerator):
             # for a widget.
             # TODO: Somehow add a warning
             defaults = {'required': field.required}
-            
+
             if hasattr(field, 'min_length'):
                 defaults['min_length'] = field.min_length
-                
+
             if hasattr(field, 'max_length'):
                 defaults['max_length'] = field.max_length
-            
+
             if hasattr(field, 'default'):
                 defaults['initial'] = field.default
-                
+
             defaults.update(kwargs)
             return forms.CharField(**kwargs)
