@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 Based on django mongotools (https://github.com/wpjunior/django-mongotools) by
 Wilson Júnior (wilsonpjunior@gmail.com).
@@ -8,6 +10,7 @@ from django.core.validators import EMPTY_VALUES
 from pymongo.errors import InvalidId
 from pymongo.objectid import ObjectId
 from django.utils.encoding import smart_unicode, force_unicode
+from django.utils.translation import ugettext_lazy as _
 
 class MongoChoiceIterator(object):
     def __init__(self, field):

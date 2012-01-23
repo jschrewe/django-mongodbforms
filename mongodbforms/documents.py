@@ -203,7 +203,7 @@ class ModelFormOptions(object):
         self.exclude = getattr(options, 'exclude', None)
         self.widgets = getattr(options, 'widgets', None)
         self.embedded_field = getattr(options, 'embedded_field_name', None)
-        self.formfield_generator = getattr(options, 'formfield_generator', None)
+        self.formfield_generator = getattr(options, 'formfield_generator', MongoDefaultFormFieldGenerator)
         
         
 class DocumentFormMetaclass(type):
@@ -418,8 +418,8 @@ class BaseDocumentForm(BaseForm):
                 fail_message = 'created'
             else:
                 fail_message = 'changed'
-        except KeyError:
-            fail_message = 'embedded docuement saved'
+        except (KeyError, AttributeError):
+            fail_message = 'embedded document saved'
         obj = save_instance(self, self.instance, self._meta.fields,
                              fail_message, commit, construct=False)
 

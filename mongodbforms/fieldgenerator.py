@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 Based on django mongotools (https://github.com/wpjunior/django-mongotools) by
 Wilson Júnior (wilsonpjunior@gmail.com).
@@ -247,7 +249,7 @@ class MongoDefaultFormFieldGenerator(MongoFormFieldGenerator):
         can be found.
         """
         try:
-            return super(MongoFormFieldGenerator, self).generate(field, **kwargs)
+            return super(MongoDefaultFormFieldGenerator, self).generate(field, **kwargs)
         except NotImplementedError:
             # a normal charfield is always a good guess
             # for a widget.
