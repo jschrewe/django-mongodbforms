@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Based on django mongotools (https://github.com/wpjunior/django-mongotools) by
 Wilson Júnior (wilsonpjunior@gmail.com).
@@ -5,6 +6,7 @@ Wilson Júnior (wilsonpjunior@gmail.com).
 
 from django import forms
 from django.core.validators import EMPTY_VALUES
+from django.utils.translation import ugettext as _
 from pymongo.errors import InvalidId
 from pymongo.objectid import ObjectId
 from django.utils.encoding import smart_unicode, force_unicode
@@ -17,7 +19,7 @@ class MongoChoiceIterator(object):
     def __iter__(self):
         if self.field.empty_label is not None:
             yield (u"", self.field.empty_label)
-        
+
         for obj in self.queryset.all():
             yield self.choice(obj)
 
@@ -39,18 +41,18 @@ class ReferenceField(forms.ChoiceField):
     """
     def __init__(self, queryset, empty_label=u"---------",
                  *aargs, **kwaargs):
-        
+
         forms.Field.__init__(self, *aargs, **kwaargs)
         self.queryset = queryset
         self.empty_label = empty_label
-        
+
     def _get_queryset(self):
         return self._queryset
-        
+
     def prepare_value(self, value):
         if hasattr(value, '_meta'):
             return value.pk
-        
+
         return super(ReferenceField, self).prepare_value(value)
 
     def _set_queryset(self, queryset):
@@ -63,7 +65,7 @@ class ReferenceField(forms.ChoiceField):
         return MongoChoiceIterator(self)
 
     choices = property(_get_choices, forms.ChoiceField._set_choices)
-    
+
     def label_from_instance(self, obj):
         """
         This method is used to convert objects into strings; it's used to
@@ -88,7 +90,7 @@ class ReferenceField(forms.ChoiceField):
 
 class DocumentMultipleChoiceField(ReferenceField):
     """A MultipleChoiceField whose choices are a model QuerySet."""
-    widget = forms.SelectMultiple   
+    widget = forms.SelectMultiple
     hidden_widget = forms.MultipleHiddenInput
     default_error_messages = {
         'list': _(u'Enter a list of values.'),
@@ -98,7 +100,7 @@ class DocumentMultipleChoiceField(ReferenceField):
     }
 
     def __init__(self, queryset, *args, **kwargs):
-        super(DocumentMultipleChoiceField, self).__init__(queryset, empty_label=None, *args, **kwargs)  
+        super(DocumentMultipleChoiceField, self).__init__(queryset, empty_label=None, *args, **kwargs)
 
     def clean(self, value):
         if self.required and not value:
@@ -108,7 +110,7 @@ class DocumentMultipleChoiceField(ReferenceField):
         if not isinstance(value, (list, tuple)):
             raise forms.ValidationError(self.error_messages['list'])
         key = 'pk'
-        
+
         filter_ids = []
         for pk in value:
             try:

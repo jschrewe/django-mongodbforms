@@ -12,5 +12,5 @@ setup(name='mongodbforms',
     package_data={
     },
     license='New BSD License',
-    long_description=open('README.txt').read(),
+    long_description=open('readme.md').read(),
 )
