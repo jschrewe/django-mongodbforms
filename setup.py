@@ -1,6 +1,14 @@
 #!/usr/bin/env python
 
 from distutils.core import setup
+from subprocess import call
+
+def convert_readme():
+    try:
+        call(["pandoc", "-t",  "rst", "-o",  "README.txt", "readme.md"])
+    except OSError:
+        pass
+    return open('README.txt').read()
 
 setup(name='mongodbforms',
     version='0.1.3',
@@ -12,5 +20,5 @@ setup(name='mongodbforms',
     package_data={
     },
     license='New BSD License',
-    long_description=open('readme.md').read(),
+    long_description=convert_readme(),
 )

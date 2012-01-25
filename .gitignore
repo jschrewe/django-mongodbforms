@@ -2,3 +2,5 @@
 .pydevproject
 .project
 *~
+dist/*
+MANIFEST
