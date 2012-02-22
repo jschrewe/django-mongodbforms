@@ -103,7 +103,7 @@ class DocumentMetaWrapper(object):
                 
             self.document._pk_val = getattr(self.document, self.pk_name)
             # avoid circular import
-            from mongoadmin.util import patch_document
+            from mongodbforms.util import patch_document
             def _get_pk_val(self):
                 return self._pk_val
             patch_document(_get_pk_val, self.document)
