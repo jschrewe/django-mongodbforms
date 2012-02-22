@@ -268,4 +268,4 @@ class MongoDefaultFormFieldGenerator(MongoFormFieldGenerator):
                 defaults['initial'] = field.default
 
             defaults.update(kwargs)
-            return forms.CharField(**kwargs)
+            return forms.CharField(**defaults)
