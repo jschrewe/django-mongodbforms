@@ -1,6 +1,7 @@
 import sys
 
 from django.db.models.fields import FieldDoesNotExist
+from django.db.models.options import get_verbose_name
 
 from mongoengine.fields import ReferenceField
 
@@ -70,7 +71,7 @@ class DocumentMetaWrapper(object):
         self.app_label = model_module.__name__.split('.')[-2]
         
         if self.verbose_name is None:
-            self.verbose_name = self.object_name
+            self.verbose_name = get_verbose_name(self.object_name)
         
         self.verbose_name_raw = self.verbose_name
         

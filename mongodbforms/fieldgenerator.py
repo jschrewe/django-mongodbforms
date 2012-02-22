@@ -8,6 +8,8 @@ Wilson Júnior (wilsonpjunior@gmail.com).
 from django import forms
 from django.core.validators import EMPTY_VALUES
 from django.utils.encoding import smart_unicode
+from django.db.models.options import get_verbose_name
+
 from mongoengine import ReferenceField as MongoReferenceField
 
 from fields import MongoCharField, ReferenceField, DocumentMultipleChoiceField
@@ -57,7 +59,7 @@ class MongoFormFieldGenerator(object):
     def get_field_label(self, field):
         if field.verbose_name:
             return field.verbose_name
-        return field.name.capitalize()
+        return get_verbose_name(field.name)
 
     def get_field_help_text(self, field):
         if field.help_text:
