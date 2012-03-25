@@ -13,7 +13,7 @@ from django.forms.formsets import BaseFormSet, formset_factory
 from django.utils.translation import ugettext_lazy as _, ugettext
 from django.utils.text import capfirst
 
-from mongoengine.fields import ObjectIdField, ListField, ReferenceField
+from mongoengine.fields import ObjectIdField, ListField, ReferenceField, FileField, ImageField
 from mongoengine.base import ValidationError
 from mongoengine.connection import _get_db
 
@@ -36,7 +36,6 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
     ``cleaned_data``, but does not save the returned instance to the
     database.
     """
-    from mongoengine.fields import FileField
     cleaned_data = form.cleaned_data
     file_field_list = []
     
@@ -55,7 +54,7 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
             continue
         # Defer saving file-type fields until after the other fields, so a
         # callable upload_to can use the values from other fields.
-        if isinstance(f, FileField):
+        if isinstance(f, FileField) or isinstance(f, ImageField):
             file_field_list.append(f)
         else:
             setattr(instance, f.name, cleaned_data[f.name])
@@ -197,8 +196,8 @@ class ModelFormOptions(object):
         self.model = self.document
         # set up the document meta wrapper if document meta is a dict
         if self.document is not None and isinstance(self.document._meta, dict):
-            self.document._admin_opts = DocumentMetaWrapper(self.document)
-            self.document._meta = self.document._admin_opts
+            self.document._meta = DocumentMetaWrapper(self.document)
+            self.document._admin_opts = self.document._meta
         self.fields = getattr(options, 'fields', None)
         self.exclude = getattr(options, 'exclude', None)
         self.widgets = getattr(options, 'widgets', None)
@@ -494,7 +493,7 @@ class BaseDocumentFormSet(BaseFormSet):
     def __init__(self, data=None, files=None, auto_id='id_%s', prefix=None,
                  queryset=None, **kwargs):
         self.queryset = queryset
-        self._queryset = queryset
+        self._queryset = self.queryset
         self.initial = self.construct_initial()
         defaults = {'data': data, 'files': files, 'auto_id': auto_id, 
                     'prefix': prefix, 'initial': self.initial}

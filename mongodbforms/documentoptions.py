@@ -25,68 +25,76 @@ class DocumentMetaWrapper(object):
     Used to store mongoengine's _meta dict to make the document admin
     as compatible as possible to django's meta class on models. 
     """
-    index_background = None
-    collection = None
-    queryset_class = None 
-    allow_inheritance = None
-    max_size = None
-    ordering = None
-    id_field = None
-    indexes = None
-    index_drop_dups = None
-    unique_indexes = None
-    app_label = None
-    max_documents = None
+    _pk = None
+    pk_name = None
+    _app_label = None
     module_name = None
-    index_opts = None
-    verbose_name = None
-    verbose_name_plural = None
+    _verbose_name = None
     has_auto_field = False
+    object_name = None
     proxy = []
     parents = {}
     many_to_many = []
+    _field_cache = None
+    document = None
+    _meta = None
     
     def __init__(self, document):
         self.document = document
-        self.meta = document._meta
-        
-        self.init_from_meta()
-        
-        self.pk_name = self.id_field
-        
-        self.init_pk()
-        
-    def init_from_meta(self):
-        for attr, value in self.document._meta.iteritems():
-            if hasattr(self, attr):
-                setattr(self, attr, value)
+        self._meta = document._meta
         
         try:
             self.object_name = self.document.__name__
         except AttributeError:
             self.object_name = self.document.__class__.__name__
-            
+        
         self.module_name = self.object_name.lower()
         
-        model_module = sys.modules[self.document.__module__]
-        self.app_label = model_module.__name__.split('.')[-2]
+        # EmbeddedDocuments don't have an id field.
+        try:
+            self.pk_name = self._meta['id_field']
+            self._init_pk()
+        except KeyError:
+            pass
+    
+    @property
+    def app_label(self):
+        if self._app_label is None:
+            model_module = sys.modules[self.document.__module__]
+            self._app_label = model_module.__name__.split('.')[-2]
+        return self._app_label
+            
+    @property
+    def verbose_name(self):
+        """
+        Returns the verbose name of the document.
         
-        if self.verbose_name is None:
-            self.verbose_name = capfirst(get_verbose_name(self.object_name))
-        
-        self.verbose_name_raw = self.verbose_name
-        
-        if self.verbose_name_plural is None:
-            self.verbose_name_plural = "%ss" % self.verbose_name
+        Checks the original meta dict first. If it is not found 
+        then generates a verbose name from from the object name.
+        """
+        if self._verbose_name is None:
+            try:
+                self._verbose_name = capfirst(get_verbose_name(self._meta['verbose_name']))
+            except KeyError:
+                self._verbose_name = capfirst(get_verbose_name(self.object_name))
+                
+        return self._verbose_name
+    
+    @property
+    def verbose_name_raw(self):
+        return self.verbose_name
+    
+    @property
+    def verbose_name_plural(self):
+        return "%ss" % self.verbose_name
     
     @property    
     def pk(self):
         if not hasattr(self._pk, 'attname'):
-            self.init_pk()
+            self._init_pk()
         return self._pk
-            
-            
-    def init_pk(self):
+        
+    def _init_pk(self):
         """
         Adds a wrapper around the documents pk field. The wrapper object gets the attributes
         django expects on the pk field, like name and attname.
@@ -139,7 +147,7 @@ class DocumentMetaWrapper(object):
         try:
             try:
                 return self._field_cache[name]
-            except AttributeError:
+            except TypeError:
                 self._init_field_cache()
                 return self._field_cache[name]
         except KeyError:
@@ -148,14 +156,15 @@ class DocumentMetaWrapper(object):
             
         
     def _init_field_cache(self):
-        if not hasattr(self, '_field_cache'):
+        if self._field_cache is None:
             self._field_cache = {}
         
         for f in self.document._fields.itervalues():
             if isinstance(f, ReferenceField):
-                model = f.document_type
-                model._admin_opts = DocumentMetaWrapper(model)
-                self._field_cache[model._admin_opts.module_name] = (f, model, False, False)
+                document = f.document_type
+                document._meta = DocumentMetaWrapper(document)
+                document._admin_opts = document._meta
+                self._field_cache[document._meta.module_name] = (f, document, False, False)
             else:
                 self._field_cache[f.name] = (f, None, True, False)
                 
@@ -166,9 +175,21 @@ class DocumentMetaWrapper(object):
         Returns the requested field by name. Raises FieldDoesNotExist on error.
         """
         return self.get_field_by_name(name)[0]
-
+    
+    def __getattr__(self, name):
+        try:
+            return self._meta[name]
+        except KeyError:
+            raise AttributeError
+        
+    def __setattr__(self, name, value):
+        if not hasattr(self, name):
+            self._meta[name] = value
+        else:
+            super(DocumentMetaWrapper, self).__setattr__(name, value)
+            
     def __getitem__(self, key):
-        return self.meta[key]
+        return self._meta[key]
     
     def get(self, key, default=None):
         try:
@@ -183,4 +204,4 @@ class DocumentMetaWrapper(object):
         return []
 
     def iteritems(self):
-        return self.meta.iteritems()
+        return self._meta.iteritems()

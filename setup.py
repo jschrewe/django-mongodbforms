@@ -17,7 +17,6 @@ setup(name='mongodbforms',
     author_email='jan@schafproductions.com',
     url='http://www.schafproductions.com/projects/django-mongodb-forms/',
     packages=['mongodbforms',],
-    package_data={},
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Web Environment',

@@ -4,3 +4,7 @@
 *~
 dist/*
 MANIFEST
+build/*
+*egg*
+
+

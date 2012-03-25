@@ -242,6 +242,9 @@ class MongoFormFieldGenerator(object):
 
     def generate_filefield(self, field, **kwargs):
         return forms.FileField(**kwargs)
+    
+    def generate_imagefield(self, field, **kwargs):
+        return forms.ImageField(**kwargs)
 
 class MongoDefaultFormFieldGenerator(MongoFormFieldGenerator):
     """This class generates Django form-fields for mongoengine-fields."""

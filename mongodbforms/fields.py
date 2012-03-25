@@ -50,18 +50,18 @@ class ReferenceField(forms.ChoiceField):
 
     def _get_queryset(self):
         return self._queryset
+    
+    def _set_queryset(self, queryset):
+        self._queryset = queryset
+        self.widget.choices = self.choices
+
+    queryset = property(_get_queryset, _set_queryset)
 
     def prepare_value(self, value):
         if hasattr(value, '_meta'):
             return value.pk
 
         return super(ReferenceField, self).prepare_value(value)
-
-    def _set_queryset(self, queryset):
-        self._queryset = queryset
-        self.widget.choices = self.choices
-
-    queryset = property(_get_queryset, _set_queryset)
 
     def _get_choices(self):
         return MongoChoiceIterator(self)
