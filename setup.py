@@ -30,5 +30,5 @@ setup(name='mongodbforms',
     long_description=convert_readme(),
     include_package_data=True,
     zip_safe=False,
-    install_requires=['setuptools', 'django>=1.3', 'mongoengine',],
+    install_requires=['setuptools', 'django>=1.3', 'mongoengine>=0.6',],
 )

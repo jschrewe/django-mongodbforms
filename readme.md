@@ -4,7 +4,8 @@ This is an implementation of django's model forms for mongoengine documents.
 
 ## Requirements
 
- * [mongoengine](http://mongoengine.org/)
+  * Django >= 1.3
+  * [mongoengine](http://mongoengine.org/) >= 0.6
 
 ## Usage
 
