@@ -91,7 +91,7 @@ class ReferenceField(forms.ChoiceField):
         return obj
     
     # Fix for Django 1.4
-    # TODO: Test with older django version
+    # TODO: Test with older django versions
     # from django-mongotools by wpjunior
     # https://github.com/wpjunior/django-mongotools/
     def __deepcopy__(self, memo):

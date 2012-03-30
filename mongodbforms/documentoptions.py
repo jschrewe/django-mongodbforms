@@ -200,7 +200,7 @@ class DocumentMetaWrapper(object):
     def get_parent_list(self):
         return []
     
-    def get_all_related_objects(self, local_only=False, include_hidden=False):
+    def get_all_related_objects(self, *args, **kwargs):
         return []
 
     def iteritems(self):
