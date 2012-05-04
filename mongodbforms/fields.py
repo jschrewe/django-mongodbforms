@@ -7,7 +7,6 @@ Wilson Júnior (wilsonpjunior@gmail.com).
 
 from django import forms
 from django.core.validators import EMPTY_VALUES
-from django.utils.translation import ugettext as _
 from django.utils.encoding import smart_unicode, force_unicode
 from django.utils.translation import ugettext_lazy as _
 
