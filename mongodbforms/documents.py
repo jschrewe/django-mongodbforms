@@ -158,7 +158,7 @@ def fields_for_document(document, fields=None, exclude=None, widgets=None, \
     for f in sorted_fields:
         if isinstance(f, ObjectIdField):
             continue
-        if isinstance(f, ListField) and not isinstance(f.field, ReferenceField):
+        if isinstance(f, ListField) and not (f.field.choices or isinstance(f.field, ReferenceField)):
             continue
         if fields is not None and not f.name in fields:
             continue
