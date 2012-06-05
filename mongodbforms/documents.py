@@ -169,10 +169,11 @@ def fields_for_document(document, fields=None, exclude=None, widgets=None, \
         else:
             kwargs = {}
 
-        formfield = field_generator.generate(f)
-        if formfield_callback is not None and not callable(formfield_callback):
+        if formfield_callback is None:
+            formfield = field_generator.generate(f, **kwargs)
+        elif not callable(formfield_callback):
             raise TypeError('formfield_callback must be a function or callable')
-        elif formfield_callback is not None:
+        else:
             formfield = formfield_callback(f, **kwargs)
 
         if formfield:
