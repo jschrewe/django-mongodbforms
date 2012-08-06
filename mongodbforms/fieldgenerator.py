@@ -241,10 +241,25 @@ class MongoFormFieldGenerator(object):
             return f
 
     def generate_filefield(self, field, **kwargs):
-        return forms.FileField(**kwargs)
-    
+        defaults = {
+            'required':field.required,
+            'label':self.get_field_label(field),
+            'initial': field.default,
+            'help_text': self.get_field_help_text(field)
+        }
+        defaults.update(kwargs)
+        return forms.FileField(**defaults)
+
     def generate_imagefield(self, field, **kwargs):
-        return forms.ImageField(**kwargs)
+        defaults = {
+            'required':field.required,
+            'label':self.get_field_label(field),
+            'initial': field.default,
+            'help_text': self.get_field_help_text(field)
+        }
+        defaults.update(kwargs)
+        return forms.ImageField(**defaults)
+
 
 class MongoDefaultFormFieldGenerator(MongoFormFieldGenerator):
     """This class generates Django form-fields for mongoengine-fields."""
