@@ -1,4 +1,5 @@
 import sys
+from collections import MutableMapping
 
 from django.db.models.fields import FieldDoesNotExist
 from django.db.models.options import get_verbose_name
@@ -20,7 +21,7 @@ class PkWrapper(object):
             setattr(self.obj, attr, value)
         super(PkWrapper, self).__setattr__(attr, value)
 
-class DocumentMetaWrapper(object):
+class DocumentMetaWrapper(MutableMapping):
     """
     Used to store mongoengine's _meta dict to make the document admin
     as compatible as possible to django's meta class on models. 
@@ -41,7 +42,7 @@ class DocumentMetaWrapper(object):
     
     def __init__(self, document):
         self.document = document
-        self._meta = document._meta
+        self._meta = getattr(document, '_meta', {})
         
         try:
             self.object_name = self.document.__name__
@@ -191,6 +192,21 @@ class DocumentMetaWrapper(object):
     def __getitem__(self, key):
         return self._meta[key]
     
+    def __setitem__(self, key, value):
+        self._meta[key] = value
+
+    def __delitem__(self, key):
+        return self._meta.__delitem__(key)
+
+    def __contains__(self, key):
+        return key in self._meta
+
+    def __iter__(self):
+        return self._meta.__iter__()
+
+    def __len__(self):
+        return self._meta.__len__()
+
     def get(self, key, default=None):
         try:
             return self.__getitem__(key)
