@@ -195,8 +195,9 @@ class ModelFormOptions(object):
     def __init__(self, options=None):
         self.document = getattr(options, 'document', None)
         self.model = self.document
+        meta = getattr(self.document, '_meta', {})
         # set up the document meta wrapper if document meta is a dict
-        if self.document is not None and isinstance(self.document._meta, dict):
+        if self.document is not None and isinstance(meta, dict):
             self.document._meta = DocumentMetaWrapper(self.document)
             self.document._admin_opts = self.document._meta
         self.fields = getattr(options, 'fields', None)
