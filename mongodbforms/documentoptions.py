@@ -187,7 +187,10 @@ class DocumentMetaWrapper(object):
             self._meta[name] = value
         else:
             super(DocumentMetaWrapper, self).__setattr__(name, value)
-            
+    
+    def __contains__(self,key):
+        return key in self._meta
+    
     def __getitem__(self, key):
         return self._meta[key]
     
