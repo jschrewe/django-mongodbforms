@@ -14,7 +14,10 @@ from django.utils.translation import ugettext_lazy as _, ugettext
 from django.utils.text import capfirst
 
 from mongoengine.fields import ObjectIdField, ListField, ReferenceField, FileField, ImageField
-from mongoengine.base import ValidationError
+try:
+    from mongoengine.base import ValidationError
+except ImportError:
+    from mongoengine.errors import ValidationError
 from mongoengine.connection import _get_db
 
 from fieldgenerator import MongoDefaultFormFieldGenerator
