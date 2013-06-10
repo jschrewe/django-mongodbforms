@@ -472,7 +472,7 @@ class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentFor
     def __init__(self, parent_document, *args, **kwargs):
         super(EmbeddedDocumentForm, self).__init__(*args, **kwargs)
         self.parent_document = parent_document
-        if self._meta.embedded_field is not None and \
+        if self._meta.embedded_field is not None and not \
                 self._meta.embedded_field in self.parent_document._fields:
             raise FieldError("Parent document must have field %s" % self._meta.embedded_field)
         
