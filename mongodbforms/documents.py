@@ -24,6 +24,8 @@ from mongoengine.connection import _get_db
 from .fieldgenerator import MongoDefaultFormFieldGenerator
 from .documentoptions import DocumentMetaWrapper
 
+from .six import with_metaclass
+
 
 def _get_unique_filename(name):
     fs = gridfs.GridFS(_get_db())
@@ -431,7 +433,7 @@ class BaseDocumentForm(BaseForm):
         return obj
     save.alters_data = True
 
-class DocumentForm(BaseDocumentForm, metaclass=DocumentFormMetaclass):
+class DocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentForm)):
     pass
     
 def documentform_factory(document, form=DocumentForm, fields=None, exclude=None,
@@ -466,7 +468,7 @@ def documentform_factory(document, form=DocumentForm, fields=None, exclude=None,
     return DocumentFormMetaclass(class_name, (form,), form_class_attrs)
 
 
-class EmbeddedDocumentForm(BaseDocumentForm, metaclass=DocumentFormMetaclass):
+class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentForm)):
     def __init__(self, parent_document, *args, **kwargs):
         super(EmbeddedDocumentForm, self).__init__(*args, **kwargs)
         self.parent_document = parent_document

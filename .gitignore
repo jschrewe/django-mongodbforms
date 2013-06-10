@@ -6,5 +6,6 @@ dist/*
 MANIFEST
 build/*
 *egg*
+*.bak
 
 
