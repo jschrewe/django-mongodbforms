@@ -81,8 +81,14 @@ class ReferenceField(forms.ChoiceField):
         return smart_unicode(obj)
 
     def clean(self, value):
-        if value in EMPTY_VALUES and not self.required:
-            return None
+        # Check for empty values. 
+        if value in EMPTY_VALUES:
+            # Raise exception if it's empty and required.
+            if self.required:
+                raise forms.ValidationError(self.error_messages['required'])
+            # If it's not required just ignore it.
+            else:
+                return None
 
         try:
             oid = ObjectId(value)

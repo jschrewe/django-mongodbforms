@@ -201,9 +201,6 @@ class DocumentMetaWrapper(MutableMapping):
     def __delitem__(self, key):
         return self._meta.__delitem__(key)
 
-    def __contains__(self, key):
-        return key in self._meta
-
     def __iter__(self):
         return self._meta.__iter__()
 
