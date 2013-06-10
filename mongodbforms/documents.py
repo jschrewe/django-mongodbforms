@@ -471,17 +471,25 @@ class EmbeddedDocumentForm(BaseDocumentForm, metaclass=DocumentFormMetaclass):
         super(EmbeddedDocumentForm, self).__init__(*args, **kwargs)
         self.parent_document = parent_document
         if self._meta.embedded_field is not None and \
-                not hasattr(self.parent_document, self._meta.embedded_field):
+                self._meta.embedded_field in self.parent_document._fields:
             raise FieldError("Parent document must have field %s" % self._meta.embedded_field)
         
     def save(self, commit=True):
+        """If commit is True the embedded document is added to the parent
+        document. Otherwise the parent_document is left untouched and the
+        embedded is returned as usual.
+        """
         if self.errors:
             raise ValueError("The %s could not be saved because the data didn't"
                          " validate." % self.instance.__class__.__name__)
         
-        
         if commit:
-            l = getattr(self.parent_document, self._meta.embedded_field)
+            field = self.parent_document._fields.get(self._meta.embedded_field) 
+            if isinstance(field, ListField) and field.default is None:
+                default = []
+            else:
+                default = field.default
+            l = getattr(self.parent_document, self._meta.embedded_field, default)
             l.append(self.instance)
             setattr(self.parent_document, self._meta.embedded_field, l)
             self.parent_document.save() 
