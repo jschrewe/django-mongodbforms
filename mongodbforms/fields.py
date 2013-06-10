@@ -24,7 +24,7 @@ class MongoChoiceIterator(object):
 
     def __iter__(self):
         if self.field.empty_label is not None:
-            yield (u"", self.field.empty_label)
+            yield ("", self.field.empty_label)
 
         for obj in self.queryset.all():
             yield self.choice(obj)
@@ -45,7 +45,7 @@ class ReferenceField(forms.ChoiceField):
     """
     Reference field for mongo forms. Inspired by `django.forms.models.ModelChoiceField`.
     """
-    def __init__(self, queryset, empty_label=u"---------",
+    def __init__(self, queryset, empty_label="---------",
                  *aargs, **kwaargs):
 
         forms.Field.__init__(self, *aargs, **kwaargs)
@@ -115,10 +115,10 @@ class DocumentMultipleChoiceField(ReferenceField):
     widget = forms.SelectMultiple
     hidden_widget = forms.MultipleHiddenInput
     default_error_messages = {
-        'list': _(u'Enter a list of values.'),
-        'invalid_choice': _(u'Select a valid choice. %s is not one of the'
-                            u' available choices.'),
-        'invalid_pk_value': _(u'"%s" is not a valid value for a primary key.')
+        'list': _('Enter a list of values.'),
+        'invalid_choice': _('Select a valid choice. %s is not one of the'
+                            ' available choices.'),
+        'invalid_pk_value': _('"%s" is not a valid value for a primary key.')
     }
 
     def __init__(self, queryset, *args, **kwargs):

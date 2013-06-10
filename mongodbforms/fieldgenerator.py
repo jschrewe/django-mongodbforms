@@ -13,7 +13,7 @@ from django.utils.text import capfirst
 
 from mongoengine import ReferenceField as MongoReferenceField
 
-from fields import MongoCharField, ReferenceField, DocumentMultipleChoiceField
+from .fields import MongoCharField, ReferenceField, DocumentMultipleChoiceField
 
 BLANK_CHOICE_DASH = [("", "---------")]
 

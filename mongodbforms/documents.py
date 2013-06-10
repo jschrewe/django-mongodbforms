@@ -14,14 +14,15 @@ from django.utils.translation import ugettext_lazy as _, ugettext
 from django.utils.text import capfirst
 
 from mongoengine.fields import ObjectIdField, ListField, ReferenceField, FileField, ImageField
+import collections
 try:
     from mongoengine.base import ValidationError
 except ImportError:
     from mongoengine.errors import ValidationError
 from mongoengine.connection import _get_db
 
-from fieldgenerator import MongoDefaultFormFieldGenerator
-from documentoptions import DocumentMetaWrapper
+from .fieldgenerator import MongoDefaultFormFieldGenerator
+from .documentoptions import DocumentMetaWrapper
 
 
 def _get_unique_filename(name):
@@ -30,7 +31,7 @@ def _get_unique_filename(name):
     count = itertools.count(1)
     while fs.exists(filename=name):
         # file_ext includes the dot.
-        name = os.path.join("%s_%s%s" % (file_root, count.next(), file_ext))
+        name = os.path.join("%s_%s%s" % (file_root, next(count), file_ext))
     return name
 
 def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
@@ -46,7 +47,7 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
     if isinstance(instance, type):
         instance = instance()
         
-    for f in instance._fields.itervalues():
+    for f in instance._fields.values():
         if isinstance(f, ObjectIdField):
             continue
         if not f.name in cleaned_data:
@@ -101,7 +102,7 @@ def save_instance(form, instance, fields=None, fail_message='saved',
         # see BaseDocumentForm._post_clean for an explanation
         if hasattr(form, '_delete_before_save'):
             fields = instance._fields
-            new_fields = dict([(n, f) for n, f in fields.iteritems() if not n in form._delete_before_save])
+            new_fields = dict([(n, f) for n, f in fields.items() if not n in form._delete_before_save])
             if hasattr(instance, '_changed_fields'):
                 for field in form._delete_before_save:
                     instance._changed_fields.remove(field)
@@ -126,7 +127,7 @@ def document_to_dict(instance, fields=None, exclude=None):
     the ``fields`` argument.
     """
     data = {}
-    for f in instance._fields.itervalues():
+    for f in instance._fields.values():
         if fields and not f.name in fields:
             continue
         if exclude and f.name in exclude:
@@ -156,7 +157,7 @@ def fields_for_document(document, fields=None, exclude=None, widgets=None, \
     # they were defined on he document (at least with cPython) and I can't see 
     # any other way for now. Oh, yeah, it works because we sort on the memory address
     # and hope that the earlier fields have a lower address.
-    sorted_fields = sorted(document._fields.values(), key=lambda field: field.__hash__())
+    sorted_fields = sorted(list(document._fields.values()), key=lambda field: field.__hash__())
     
     for f in sorted_fields:
         if isinstance(f, ObjectIdField):
@@ -174,7 +175,7 @@ def fields_for_document(document, fields=None, exclude=None, widgets=None, \
 
         if formfield_callback is None:
             formfield = field_generator.generate(f, **kwargs)
-        elif not callable(formfield_callback):
+        elif not isinstance(formfield_callback, collections.Callable):
             raise TypeError('formfield_callback must be a function or callable')
         else:
             formfield = formfield_callback(f, **kwargs)
@@ -234,7 +235,7 @@ class DocumentFormMetaclass(type):
             fields = fields_for_document(opts.document, opts.fields,
                             opts.exclude, opts.widgets, formfield_callback, formfield_generator)
             # make sure opts.fields doesn't specify an invalid field
-            none_document_fields = [k for k, v in fields.iteritems() if not v]
+            none_document_fields = [k for k, v in fields.items() if not v]
             missing_fields = set(none_document_fields) - \
                              set(declared_fields.keys())
             if missing_fields:
@@ -282,7 +283,7 @@ class BaseDocumentForm(BaseForm):
                                             error_class, label_suffix, empty_permitted)
 
     def _update_errors(self, message_dict):
-        for k, v in message_dict.items():
+        for k, v in list(message_dict.items()):
             if k != NON_FIELD_ERRORS:
                 self._errors.setdefault(k, self.error_class()).extend(v)
                 # Remove the data from the cleaned_data dict since it was invalid
@@ -301,7 +302,7 @@ class BaseDocumentForm(BaseForm):
         exclude = []
         # Build up a list of fields that should be excluded from model field
         # validation and unique checks.
-        for f in self.instance._fields.itervalues():
+        for f in self.instance._fields.values():
             field = f.name
             # Exclude fields that aren't on the form. The developer may be
             # adding these values to the model after form validation.
@@ -318,7 +319,7 @@ class BaseDocumentForm(BaseForm):
 
             # Exclude fields that failed form validation. There's no need for
             # the model fields to validate them as well.
-            elif field in self._errors.keys():
+            elif field in list(self._errors.keys()):
                 exclude.append(f.name)
 
             # Exclude empty fields that are not required by the form, if the
@@ -347,7 +348,7 @@ class BaseDocumentForm(BaseForm):
         # Clean the model instance's fields.
         to_delete = []
         try:
-            for f in self.instance._fields.itervalues():
+            for f in self.instance._fields.values():
                 value = getattr(self.instance, f.name)
                 if f.name not in exclude:
                     f.validate(value)
@@ -356,7 +357,7 @@ class BaseDocumentForm(BaseForm):
                     # that are not required. Clean them up here, though
                     # this is maybe not the right place :-)
                     to_delete.append(f.name)
-        except ValidationError, e:
+        except ValidationError as e:
             err = {f.name: [e.message]}
             self._update_errors(err)
         
@@ -372,7 +373,7 @@ class BaseDocumentForm(BaseForm):
         if hasattr(self.instance, 'clean'):
             try:
                 self.instance.clean()
-            except ValidationError, e:
+            except ValidationError as e:
                 self._update_errors({NON_FIELD_ERRORS: e.messages})
 
         # Validate uniqueness if needed.
@@ -386,7 +387,7 @@ class BaseDocumentForm(BaseForm):
         """
         errors = []
         exclude = self._get_validation_exclusions()
-        for f in self.instance._fields.itervalues():
+        for f in self.instance._fields.values():
             if f.unique and f.name not in exclude:
                 filter_kwargs = {
                     f.name: getattr(self.instance, f.name)
@@ -397,9 +398,9 @@ class BaseDocumentForm(BaseForm):
                 if self.instance.pk is not None:
                     qs = qs.filter(pk__ne=self.instance.pk)
                 if len(qs) > 0:
-                    message = _(u"%(model_name)s with this %(field_label)s already exists.") %  {
-                                'model_name': unicode(capfirst(self.instance._meta.verbose_name)),
-                                'field_label': unicode(pretty_name(f.name))
+                    message = _("%(model_name)s with this %(field_label)s already exists.") %  {
+                                'model_name': str(capfirst(self.instance._meta.verbose_name)),
+                                'field_label': str(pretty_name(f.name))
                     }
                     err_dict = {f.name: [message]}
                     self._update_errors(err_dict)
@@ -430,8 +431,8 @@ class BaseDocumentForm(BaseForm):
         return obj
     save.alters_data = True
 
-class DocumentForm(BaseDocumentForm):
-    __metaclass__ = DocumentFormMetaclass
+class DocumentForm(BaseDocumentForm, metaclass=DocumentFormMetaclass):
+    pass
     
 def documentform_factory(document, form=DocumentForm, fields=None, exclude=None,
                        formfield_callback=None):
@@ -465,9 +466,7 @@ def documentform_factory(document, form=DocumentForm, fields=None, exclude=None,
     return DocumentFormMetaclass(class_name, (form,), form_class_attrs)
 
 
-class EmbeddedDocumentForm(BaseDocumentForm):
-    __metaclass__ = DocumentFormMetaclass
-    
+class EmbeddedDocumentForm(BaseDocumentForm, metaclass=DocumentFormMetaclass):
     def __init__(self, parent_document, *args, **kwargs):
         super(EmbeddedDocumentForm, self).__init__(*args, **kwargs)
         self.parent_document = parent_document
@@ -565,7 +564,7 @@ class BaseDocumentFormSet(BaseFormSet):
             "which must be unique for the %(lookup)s in %(date_field)s.") % {
             'field_name': date_check[2],
             'date_field': date_check[3],
-            'lookup': unicode(date_check[1]),
+            'lookup': str(date_check[1]),
         }
 
     def get_form_error(self):

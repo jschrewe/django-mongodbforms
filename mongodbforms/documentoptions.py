@@ -114,10 +114,11 @@ class DocumentMetaWrapper(MutableMapping):
                 
             self.document._pk_val = getattr(self.document, self.pk_name)
             # avoid circular import
-            from mongodbforms.util import patch_document
-            def _get_pk_val(self):
+            #from mongodbforms.util import patch_document
+            def get_pk_val():
                 return self._pk_val
-            patch_document(_get_pk_val, self.document)
+            #patch_document(_get_pk_val, self.document)
+            self.document._get_pk_val = get_pk_val
         except AttributeError:
             return      
                 
@@ -160,7 +161,7 @@ class DocumentMetaWrapper(MutableMapping):
         if self._field_cache is None:
             self._field_cache = {}
         
-        for f in self.document._fields.itervalues():
+        for f in self.document._fields.values():
             if isinstance(f, ReferenceField):
                 document = f.document_type
                 document._meta = DocumentMetaWrapper(document)
@@ -220,4 +221,4 @@ class DocumentMetaWrapper(MutableMapping):
         return []
 
     def iteritems(self):
-        return self._meta.iteritems()
+        return iter(self._meta.items())
