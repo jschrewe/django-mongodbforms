@@ -552,7 +552,7 @@ class BaseDocumentFormSet(BaseFormSet):
                 except AttributeError:
                     # if it has no delete method it is an 
                     # embedded object. We just don't add to the list
-                    # and it's gone. Cook huh?
+                    # and it's gone. Cool huh?
                     continue
             saved.append(obj)
         return saved
@@ -670,6 +670,7 @@ class EmbeddedDocumentFormSet(BaseInlineDocumentFormSet):
         defaults.update(kwargs)
         form = super(BaseDocumentFormSet, self)._construct_form(i, **defaults)
         return form
+
 
 def embeddedformset_factory(document, parent_document, form=EmbeddedDocumentForm,
                           formset=EmbeddedDocumentFormSet,
