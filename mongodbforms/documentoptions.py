@@ -114,11 +114,10 @@ class DocumentMetaWrapper(MutableMapping):
                 
             self.document._pk_val = getattr(self.document, self.pk_name)
             # avoid circular import
-            #from mongodbforms.util import patch_document
-            def get_pk_val():
+            from mongodbforms.util import patch_document
+            def _get_pk_val():
                 return self._pk_val
-            #patch_document(_get_pk_val, self.document)
-            self.document._get_pk_val = get_pk_val
+            patch_document(_get_pk_val, self.document)
         except AttributeError:
             return      
                 
