@@ -24,7 +24,7 @@ from mongoengine.connection import _get_db
 from .fieldgenerator import MongoDefaultFormFieldGenerator
 from .documentoptions import DocumentMetaWrapper
 
-from .six import with_metaclass
+from .util import with_metaclass
 
 
 def _get_unique_filename(name):
