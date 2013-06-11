@@ -546,7 +546,7 @@ class BaseDocumentFormSet(BaseFormSet):
             if not form.has_changed() and not form in self.initial_forms:
                 continue
             obj = self.save_object(form)
-            if form.cleaned_data["DELETE"]:
+            if form.cleaned_data.get("DELETE", False):
                 try:
                     obj.delete()
                 except AttributeError:
