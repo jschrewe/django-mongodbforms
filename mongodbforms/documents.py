@@ -1,9 +1,8 @@
 import os
 import itertools
-import gridfs
+from collections import Callable
 
 from django.utils.datastructures import SortedDict
-
 from django.forms.forms import BaseForm, get_declared_fields, NON_FIELD_ERRORS, pretty_name
 from django.forms.widgets import media_property
 from django.core.exceptions import FieldError
@@ -14,12 +13,12 @@ from django.utils.translation import ugettext_lazy as _, ugettext
 from django.utils.text import capfirst
 
 from mongoengine.fields import ObjectIdField, ListField, ReferenceField, FileField, ImageField
-import collections
 try:
     from mongoengine.base import ValidationError
 except ImportError:
     from mongoengine.errors import ValidationError
 from mongoengine.connection import _get_db
+from gridfs import GridFS
 
 from .fieldgenerator import MongoDefaultFormFieldGenerator
 from .documentoptions import DocumentMetaWrapper
@@ -28,7 +27,7 @@ from .util import with_metaclass
 
 
 def _get_unique_filename(name):
-    fs = gridfs.GridFS(_get_db())
+    fs = GridFS(_get_db())
     file_root, file_ext = os.path.splitext(name)
     count = itertools.count(1)
     while fs.exists(filename=name):
@@ -177,7 +176,7 @@ def fields_for_document(document, fields=None, exclude=None, widgets=None, \
 
         if formfield_callback is None:
             formfield = field_generator.generate(f, **kwargs)
-        elif not isinstance(formfield_callback, collections.Callable):
+        elif not isinstance(formfield_callback, Callable):
             raise TypeError('formfield_callback must be a function or callable')
         else:
             formfield = formfield_callback(f, **kwargs)
@@ -199,6 +198,7 @@ def fields_for_document(document, fields=None, exclude=None, widgets=None, \
 
 class ModelFormOptions(object):
     def __init__(self, options=None):
+        # document class can be declared with 'document =' or 'model ='
         self.document = getattr(options, 'document', None)
         if self.document is None:
             self.document = getattr(options, 'model', None)
