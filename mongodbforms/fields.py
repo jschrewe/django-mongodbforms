@@ -7,7 +7,12 @@ Wilson Júnior (wilsonpjunior@gmail.com).
 
 from django import forms
 from django.core.validators import EMPTY_VALUES
-from django.utils.encoding import force_unicode
+
+try:
+    from django.utils.encoding import force_text as force_unicode
+except ImportError:
+    from django.utils.encoding import force_unicode
+    
 try:
     from django.utils.encoding import smart_text as smart_unicode
 except ImportError:
@@ -15,6 +20,7 @@ except ImportError:
         from django.utils.encoding import smart_unicode
     except ImportError:
         from django.forms.util import smart_unicode
+        
 from django.utils.translation import ugettext_lazy as _
 
 try:  # objectid was moved into bson in pymongo 1.9
