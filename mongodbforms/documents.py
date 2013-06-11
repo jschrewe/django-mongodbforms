@@ -684,8 +684,8 @@ class EmbeddedDocumentFormSet(BaseInlineDocumentFormSet):
         
         if commit:
             form = self.empty_form
-            list = getattr(self.parent_document, form._meta.embedded_field)
-            setattr(self.parent_document, form._meta.embedded_field, list + objs)
+            attr_data = getattr(self.parent_document, form._meta.embedded_field)
+            setattr(self.parent_document, form._meta.embedded_field, attr_data + objs)
             self.parent_document.save()
         
         return objs 
