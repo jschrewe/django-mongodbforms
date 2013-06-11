@@ -7,7 +7,13 @@ Wilson Júnior (wilsonpjunior@gmail.com).
 
 from django import forms
 from django.core.validators import EMPTY_VALUES
-from django.utils.encoding import smart_unicode
+try:
+    from django.utils.encoding import smart_text as smart_unicode
+except ImportError:
+    try:
+        from django.utils.encoding import smart_unicode
+    except ImportError:
+        from django.forms.util import smart_unicode
 from django.db.models.options import get_verbose_name
 from django.utils.text import capfirst
 
