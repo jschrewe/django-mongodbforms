@@ -200,6 +200,9 @@ def fields_for_document(document, fields=None, exclude=None, widgets=None, \
 class ModelFormOptions(object):
     def __init__(self, options=None):
         self.document = getattr(options, 'document', None)
+        if self.document is None:
+            self.document = getattr(options, 'model', None)
+            
         self.model = self.document
         meta = getattr(self.document, '_meta', {})
         # set up the document meta wrapper if document meta is a dict
