@@ -553,13 +553,13 @@ class BaseDocumentFormSet(BaseFormSet):
             if not form.has_changed() and not form in self.initial_forms:
                 continue
             obj = self.save_object(form)
-            if form.cleaned_data["DELETE"]:
+            if form.cleaned_data.get("DELETE", False):
                 try:
                     obj.delete()
                 except AttributeError:
                     # if it has no delete method it is an 
                     # embedded object. We just don't add to the list
-                    # and it's gone. Cook huh?
+                    # and it's gone. Cool huh?
                     continue
             saved.append(obj)
         return saved
@@ -576,6 +576,7 @@ class BaseDocumentFormSet(BaseFormSet):
             
         if errors:
             raise ValidationError(errors)
+        
     def get_date_error_message(self, date_check):
         return ugettext("Please correct the duplicate data for %(field_name)s "
             "which must be unique for the %(lookup)s in %(date_field)s.") % {
@@ -675,8 +676,18 @@ class EmbeddedDocumentFormSet(BaseInlineDocumentFormSet):
     def _construct_form(self, i, **kwargs):
         defaults = {'parent_document': self.parent_document}
         defaults.update(kwargs)
-        form = super(BaseDocumentFormSet, self)._construct_form(i, **defaults)
+        form = super(EmbeddedDocumentFormSet, self)._construct_form(i, **defaults)
         return form
+    
+    def save(self, commit=True):
+        objs = super(EmbeddedDocumentFormSet, self).save(commit)
+        
+        if commit:
+            form = self.empty_form
+            setattr(self.parent_document, form._meta.embedded_field, objs)
+            self.parent_document.save()
+        
+        return objs 
 
 def embeddedformset_factory(document, parent_document, form=EmbeddedDocumentForm,
                           formset=EmbeddedDocumentFormSet,
