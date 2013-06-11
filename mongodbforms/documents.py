@@ -668,8 +668,8 @@ def inlineformset_factory(document, form=DocumentForm,
     return FormSet
 
 class EmbeddedDocumentFormSet(BaseInlineDocumentFormSet):
-    def __init__(self, parent_document=None, data=None, files=None, instance=None,
-                 save_as_new=False, prefix=None, queryset=[], **kwargs):
+    def __init__(self, data=None, files=None, instance=None,
+                 save_as_new=False, prefix=None, queryset=[], parent_document=None, **kwargs):
         self.parent_document = parent_document
         super(EmbeddedDocumentFormSet, self).__init__(data, files, instance, save_as_new, prefix, queryset, **kwargs)
         
@@ -689,6 +689,7 @@ class EmbeddedDocumentFormSet(BaseInlineDocumentFormSet):
             self.parent_document.save()
         
         return objs 
+
 
 def embeddedformset_factory(document, parent_document, form=EmbeddedDocumentForm,
                           formset=EmbeddedDocumentFormSet,
