@@ -494,9 +494,13 @@ class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentFor
                 default = []
             else:
                 default = field.default
-            l = getattr(self.parent_document, self._meta.embedded_field, default)
-            l.append(self.instance)
-            setattr(self.parent_document, self._meta.embedded_field, l)
+            attr = getattr(self.parent_document, self._meta.embedded_field, default)
+            try:
+                attr.append(self.instance)
+            except AttributeError:
+                # not a listfield on parent, treat as an embedded field
+                attr = self.instance
+            setattr(self.parent_document, self._meta.embedded_field, attr)
             self.parent_document.save() 
         
         return self.instance
