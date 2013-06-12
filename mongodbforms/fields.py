@@ -217,7 +217,6 @@ class ListField(forms.Field):
             initial = empty_val
         else:
             initial = initial + empty_val
-        print initial
             
         fields = [self.field_type(initial=d) for d in initial]
         
@@ -246,7 +245,7 @@ class ListField(forms.Field):
         else:
             raise ValidationError(self.error_messages['invalid'])
         
-        field = self.field_type()
+        field = self.field_type(required=self.required)
         for field_value in value:
             if self.required and field_value in self.empty_values:
                 raise ValidationError(self.error_messages['required'])
@@ -257,6 +256,8 @@ class ListField(forms.Field):
                 # raise at the end of clean(), rather than raising a single
                 # exception for the first error we encounter.
                 errors.extend(e.messages)
+            if field.required:
+                field.required = False
         if errors:
             raise ValidationError(errors)
 

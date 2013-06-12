@@ -2,6 +2,7 @@ import copy
 
 from django.forms.widgets import Widget, Media
 from django.utils.safestring import mark_safe
+from django.core.validators import EMPTY_VALUES
 
 
 class MultiWidget(Widget):
@@ -42,8 +43,11 @@ class MultiWidget(Widget):
             # I'm totally not sure which one though.
             pass
         self.widgets = [self.widget_type() for v in value]
-        # always add an empty field to be able to add data
-        self.widgets.append(self.widget_type()) 
+        if len(value[-1:]) == 0 or value[-1:][0] != '':
+            # add an empty field to be able to add data
+            empty_widget = self.widget_type()
+            empty_widget.is_required = False
+            self.widgets.append(empty_widget) 
         if self.is_localized:
             for widget in self.widgets:
                 widget.is_localized = self.is_localized
@@ -71,7 +75,9 @@ class MultiWidget(Widget):
         i = 0
         ret = []
         while data.has_key(name + '_%s' % i):
-            ret.append(widget.value_from_datadict(data, files, name + '_%s' % i))
+            value = widget.value_from_datadict(data, files, name + '_%s' % i)
+            if value not in EMPTY_VALUES:
+                ret.append(value)
             i = i + 1
         return ret
 
