@@ -828,7 +828,7 @@ def inlineformset_factory(document, form=DocumentForm,
 #    FormSet = documentformset_factory(document, **kwargs)
 #    return FormSet
 
-class EmbeddedDocumentFormSet(BaseDocumentFormSet):
+class EmbeddedDocumentFormSet(BaseInlineDocumentFormSet):
     def __init__(self, data=None, files=None, instance=None,
                  save_as_new=False, prefix=None, queryset=[], parent_document=None, **kwargs):
         self.parent_document = parent_document
