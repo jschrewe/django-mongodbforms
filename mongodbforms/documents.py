@@ -843,7 +843,7 @@ class EmbeddedDocumentFormSet(BaseInlineDocumentFormSet):
     @property
     def empty_form(self):
         form = self.form(
-            parent_document,
+            self.parent_document,
             auto_id=self.auto_id,
             prefix=self.add_prefix('__prefix__'),
             empty_permitted=True,
