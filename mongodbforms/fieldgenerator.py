@@ -252,7 +252,7 @@ class MongoFormFieldGenerator(object):
                 'label': self.get_field_label(field),
                 'help_text': self.get_field_help_text(field),
                 'required': field.required,
-                'initial': getattr(field._owner_document, field.name, [])
+                #'initial': getattr(field._owner_document, field.name, [])
             }
             defaults.update(kwargs)
             # figure out which type of field is stored in the list

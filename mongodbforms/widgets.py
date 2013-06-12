@@ -42,8 +42,9 @@ class MultiWidget(Widget):
             # Yes! This is a stub. Some exception should be raised here I suppose
             # I'm totally not sure which one though.
             pass
-        self.widgets = [self.widget_type() for v in value]
-        if len(value[-1:]) == 0 or value[-1:][0] != '':
+        if value is not None:
+            self.widgets = [self.widget_type() for v in value]
+        if value is None or (len(value[-1:]) == 0 or value[-1:][0] != ''):
             # add an empty field to be able to add data
             empty_widget = self.widget_type()
             empty_widget.is_required = False
@@ -57,7 +58,7 @@ class MultiWidget(Widget):
         for i, widget in enumerate(self.widgets):
             try:
                 widget_value = value[i]
-            except IndexError:
+            except (IndexError, TypeError):
                 widget_value = None
             if id_:
                 final_attrs = dict(final_attrs, id='%s_%s' % (id_, i))
