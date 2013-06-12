@@ -62,7 +62,7 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
         if isinstance(f, FileField) or isinstance(f, ImageField):
             file_field_list.append(f)
         else:
-            setattr(instance, f.name, cleaned_data[f.name])
+            setattr(instance, f.name, cleaned_data.get(f.name))
 
     for f in file_field_list:
         upload = cleaned_data[f.name]
@@ -102,17 +102,13 @@ def save_instance(form, instance, fields=None, fail_message='saved',
     if commit and hasattr(instance, 'save'):
         # see BaseDocumentForm._post_clean for an explanation
         if hasattr(form, '_delete_before_save'):
-            #fields = instance._fields
-            #new_fields = dict([(n, f) for n, f in fields.items() if not n in form._delete_before_save])
             data = instance._data
             new_data = dict([(n, f) for n, f in data.items() if not n in form._delete_before_save])
             if hasattr(instance, '_changed_fields'):
                 for field in form._delete_before_save:
                     instance._changed_fields.remove(field)
-            #instance._fields = new_fields
             instance._data = new_data
             instance.save()
-            #instance._fields = fields
             instance._data = data
         else:
             instance.save()
@@ -353,7 +349,6 @@ class BaseDocumentForm(BaseForm):
         self.instance = construct_instance(self, self.instance, opts.fields, opts.exclude)
 
         exclude = self._get_validation_exclusions()
-
         # Clean the model instance's fields.
         to_delete = []
         try:
@@ -680,7 +675,7 @@ def inlineformset_factory(document, form=DocumentForm,
 #    def __init__(self, data=None, files=None, instance=None,
 #                 save_as_new=False, prefix=None, queryset=None, **kwargs):
 #        if instance is None:
-#            self.instance = self.fk.rel.to()
+#            self.instance = self.rel_field.name
 #        else:
 #            self.instance = instance
 #        self.save_as_new = save_as_new
@@ -760,60 +755,59 @@ def inlineformset_factory(document, form=DocumentForm,
 #        return super(BaseInlineDocumentFormSet, self).get_unique_error_message(unique_check)
 #
 #
-#def _get_foreign_key(parent_model, model, fk_name=None, can_fail=False):
+#def _get_rel_field(parent_document, model, rel_name=None, can_fail=False):
 #    """
 #    Finds and returns the ForeignKey from model to parent if there is one
 #    (returns None if can_fail is True and no such field exists). If fk_name is
 #    provided, assume it is the name of the ForeignKey field. Unles can_fail is
 #    True, an exception is raised if there is no ForeignKey from model to
-#    parent_model.
+#    parent_document.
 #    """
 #    #opts = model._meta
 #    fields = model._fields
-#    if fk_name:
-#        if fk_name not in fields:
-#            raise Exception("%s has no field named '%s'" % (model, fk_name))
+#    if rel_name:
+#        if rel_name not in fields:
+#            raise Exception("%s has no field named '%s'" % (model, rel_name))
 #        
-#        rel_model = getattr(model, fk_name, None)
-#        if not isinstance(fields.get(fk_name), ReferenceField) or \
-#                rel_model != parent_model:
-#            raise Exception("rel_name '%s' is not a reference to %s" % (fk_name, parent_model))    
+#        rel_model = getattr(model, rel_name, None)
+#        ref_field = fields.get(rel_name)
+#        if not isinstance(ref_field, ReferenceField) or \
+#                rel_model != parent_document:
+#            raise Exception("rel_name '%s' is not a reference to %s" % (rel_name, parent_document))    
 #    else:
-#        # Try to discover what the ForeignKey from model to parent_model is
+#        # Try to discover what the ForeignKey from model to parent_document is
 #        rel_to_parent = [
 #            f for f in fields
-#            if 
+#            if isinstance(f, ReferenceField)
+#            and getattr(model, f.name) == parent_document
 #        ]
-#        fks_to_parent = [
-#            f for f in opts.fields
-#            if isinstance(f, ForeignKey)
-#            and (f.rel.to == parent_model
-#                or f.rel.to in parent_model._meta.get_parent_list())
-#        ]
-#        if len(fks_to_parent) == 1:
-#            fk = fks_to_parent[0]
-#        elif len(fks_to_parent) == 0:
+#        if len(rel_to_parent) == 1:
+#            ref_field = rel_to_parent[0]
+#        elif len(rel_to_parent) == 0:
 #            if can_fail:
 #                return
-#            raise Exception("%s has no ForeignKey to %s" % (model, parent_model))
+#            raise Exception("%s has no relation to %s" % (model, parent_document))
 #        else:
-#            raise Exception("%s has more than 1 ForeignKey to %s" % (model, parent_model))
-#    return fk
-
-
+#            raise Exception("%s has more than 1 relation to %s" % (model, parent_document))
+#    return ref_field
 #
-#    
-#def inlineformset_factory(document, form=DocumentForm,
-#                          formset=BaseInlineDocumentFormSet,
-#                          fields=None, exclude=None,
-#                          extra=1, can_order=False, can_delete=True, max_num=None,
-#                          formfield_callback=None):
+#
+#def inlineformset_factory(parent_document, model, form=ModelForm,
+#                          formset=BaseInlineFormSet, fk_name=None,
+#                          fields=None, exclude=None, extra=3, can_order=False,
+#                          can_delete=True, max_num=None, formfield_callback=None,
+#                          widgets=None, validate_max=False, localized_fields=None):
 #    """
 #    Returns an ``InlineFormSet`` for the given kwargs.
 #
 #    You must provide ``fk_name`` if ``model`` has more than one ``ForeignKey``
-#    to ``parent_model``.
+#    to ``parent_document``.
 #    """
+#    rel_field = _get_rel_field(parent_document, model, fk_name=fk_name)
+#    # You can't have more then reference in a ReferenceField
+#    # so max_num is always one for now (maybe 
+#    # ListFields(ReferenceFields) will be supported one day).
+#    max_num = 1
 #    kwargs = {
 #        'form': form,
 #        'formfield_callback': formfield_callback,
@@ -824,9 +818,14 @@ def inlineformset_factory(document, form=DocumentForm,
 #        'fields': fields,
 #        'exclude': exclude,
 #        'max_num': max_num,
+#        'widgets': widgets,
+#        'validate_max': validate_max,
+#        'localized_fields': localized_fields,
 #    }
-#    FormSet = documentformset_factory(document, **kwargs)
+#    FormSet = documentformset_factory(model, **kwargs)
+#    FormSet.rel_field = rel_field
 #    return FormSet
+
 
 class EmbeddedDocumentFormSet(BaseDocumentFormSet):
     def __init__(self, data=None, files=None, instance=None,

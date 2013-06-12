@@ -22,6 +22,8 @@ except ImportError:
         from django.forms.util import smart_unicode
         
 from django.utils.translation import ugettext_lazy as _
+from django.forms.util import ErrorList
+from django.core.exceptions import ValidationError
 
 try:  # objectid was moved into bson in pymongo 1.9
     from bson.objectid import ObjectId
@@ -29,6 +31,8 @@ try:  # objectid was moved into bson in pymongo 1.9
 except ImportError:
     from pymongo.objectid import ObjectId
     from pymongo.errors import InvalidId
+    
+from .widgets import MultiWidget
 
 class MongoChoiceIterator(object):
     def __init__(self, field):
@@ -168,3 +172,103 @@ class DocumentMultipleChoiceField(ReferenceField):
         if hasattr(value, '__iter__') and not hasattr(value, '_meta'):
             return [super(DocumentMultipleChoiceField, self).prepare_value(v) for v in value]
         return super(DocumentMultipleChoiceField, self).prepare_value(value)
+    
+    
+class ListField(forms.Field):
+    """
+    A Field that aggregates the logic of multiple Fields.
+
+    Its clean() method takes a "decompressed" list of values, which are then
+    cleaned into a single value according to self.fields. Each value in
+    this list is cleaned by the corresponding field -- the first value is
+    cleaned by the first field, the second value is cleaned by the second
+    field, etc. Once all fields are cleaned, the list of clean values is
+    "compressed" into a single value.
+
+    Subclasses should not have to implement clean(). Instead, they must
+    implement compress(), which takes a list of valid values and returns a
+    "compressed" version of those values -- a single value.
+
+    You'll probably want to use this with MultiWidget.
+    """
+    default_error_messages = {
+        'invalid': _('Enter a list of values.'),
+    }
+    widget = MultiWidget
+
+    def __init__(self, field_type, *args, **kwargs):
+        self.field_type = field_type
+        self.fields = []
+        widget = self.field_type().widget
+        if isinstance(widget, type):
+            w_type = widget
+        else:
+            w_type = widget.__class__
+        self.widget = self.widget(w_type)
+        
+        super(ListField, self).__init__(*args, **kwargs)
+        
+        if not hasattr(self, 'empty_values'):
+            self.empty_values = list(EMPTY_VALUES)
+        
+    def _init_fields(self, initial):
+        empty_val = ['',]
+        if initial is None:
+            initial = empty_val
+        else:
+            initial = initial + empty_val
+        print initial
+            
+        fields = [self.field_type(initial=d) for d in initial]
+        
+        return fields
+
+    def validate(self, value):
+        pass
+
+    def clean(self, value):
+        """
+        Validates every value in the given list. A value is validated against
+        the corresponding Field in self.fields.
+
+        For example, if this MultiValueField was instantiated with
+        fields=(DateField(), TimeField()), clean() would call
+        DateField.clean(value[0]) and TimeField.clean(value[1]).
+        """
+        clean_data = []
+        errors = ErrorList()
+        if not value or isinstance(value, (list, tuple)):
+            if not value or not [v for v in value if v not in self.empty_values]:
+                if self.required:
+                    raise ValidationError(self.error_messages['required'])
+                else:
+                    return []
+        else:
+            raise ValidationError(self.error_messages['invalid'])
+        
+        field = self.field_type()
+        for field_value in value:
+            if self.required and field_value in self.empty_values:
+                raise ValidationError(self.error_messages['required'])
+            try:
+                clean_data.append(field.clean(field_value))
+            except ValidationError as e:
+                # Collect all validation errors in a single list, which we'll
+                # raise at the end of clean(), rather than raising a single
+                # exception for the first error we encounter.
+                errors.extend(e.messages)
+        if errors:
+            raise ValidationError(errors)
+
+        self.validate(clean_data)
+        self.run_validators(clean_data)
+        return clean_data
+
+    def _has_changed(self, initial, data):
+        if initial is None:
+            initial = ['' for x in range(0, len(data))]
+        for field, initial, data in zip(self.fields, initial, data):
+            if field._has_changed(initial, data):
+                return True
+        return False
+

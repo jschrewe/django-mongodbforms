@@ -17,9 +17,9 @@ except ImportError:
 from django.db.models.options import get_verbose_name
 from django.utils.text import capfirst
 
-from mongoengine import ReferenceField as MongoReferenceField
+from mongoengine import ReferenceField as MongoReferenceField, EmbeddedDocumentField as MongoEmbeddedDocumentField
 
-from .fields import MongoCharField, ReferenceField, DocumentMultipleChoiceField
+from .fields import MongoCharField, ReferenceField, DocumentMultipleChoiceField, ListField
 
 BLANK_CHOICE_DASH = [("", "---------")]
 
@@ -66,7 +66,9 @@ class MongoFormFieldGenerator(object):
     def get_field_label(self, field):
         if field.verbose_name:
             return field.verbose_name
-        return capfirst(get_verbose_name(field.name))
+        if field.name is not None:
+            return capfirst(get_verbose_name(field.name))
+        return ''
 
     def get_field_help_text(self, field):
         if field.help_text:
@@ -244,6 +246,18 @@ class MongoFormFieldGenerator(object):
 
             defaults.update(kwargs)
             f = DocumentMultipleChoiceField(field.field.document_type.objects, **defaults)
+            return f
+        elif not isinstance(field.field, MongoEmbeddedDocumentField):
+            defaults = {
+                'label': self.get_field_label(field),
+                'help_text': self.get_field_help_text(field),
+                'required': field.required,
+                'initial': getattr(field._owner_document, field.name, [])
+            }
+            defaults.update(kwargs)
+            # figure out which type of field is stored in the list
+            form_field = self.generate(field.field)
+            f = ListField(form_field.__class__, **defaults)
             return f
 
     def generate_filefield(self, field, **kwargs):
