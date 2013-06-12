@@ -858,8 +858,22 @@ class EmbeddedDocumentFormSet(BaseInlineDocumentFormSet):
         
         if commit and self.parent_document is not None:
             form = self.empty_form
-            attr_data = getattr(self.parent_document, form._meta.embedded_field, [])
-            setattr(self.parent_document, form._meta.embedded_field, attr_data + objs)
+            # The thing about formsets is that the base use case is to edit *all*
+            # of the associated objects on a model. As written, using these FormSets this
+            # way will cause the existing embedded documents to get saved along with a
+            # copy of themselves plus any new ones you added.
+            #
+            # The only way you could do "updates" of existing embedded document fields is
+            # if those embedded documents had ObjectIDs of their own, which they don't
+            # by default in Mongoengine.
+            #
+            # In this case it makes the most sense to simply replace the embedded field
+            # with the new values gathered form the formset, rather than adding the new
+            # values to the existing values, because the new values will almost always
+            # contain the old values (with the default use case.)
+            #
+            # attr_data = getattr(self.parent_document, form._meta.embedded_field, [])
+            setattr(self.parent_document, form._meta.embedded_field, objs or [])
             self.parent_document.save()
         
         return objs 
