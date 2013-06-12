@@ -75,7 +75,7 @@ class MultiWidget(Widget):
         widget = self.widget_type()
         i = 0
         ret = []
-        while data.has_key(name + '_%s' % i):
+        while (name + '_%s' % i) in data:
             value = widget.value_from_datadict(data, files, name + '_%s' % i)
             if value not in EMPTY_VALUES:
                 ret.append(value)
