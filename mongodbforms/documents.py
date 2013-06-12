@@ -476,7 +476,7 @@ def documentform_factory(document, form=DocumentForm, fields=None, exclude=None,
 
 
 class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentForm)):
-    def __init__(self, parent_document = parent_document, *args, **kwargs):
+    def __init__(self, parent_document, *args, **kwargs):
         super(EmbeddedDocumentForm, self).__init__(*args, **kwargs)
         self.parent_document = parent_document
         if self._meta.embedded_field is not None and not \
@@ -840,6 +840,16 @@ class EmbeddedDocumentFormSet(BaseInlineDocumentFormSet):
         form = super(EmbeddedDocumentFormSet, self)._construct_form(i, **defaults)
         return form
 
+    @property
+    def empty_form(self):
+        form = self.form(
+            parent_document,
+            auto_id=self.auto_id,
+            prefix=self.add_prefix('__prefix__'),
+            empty_permitted=True,
+        )
+        self.add_fields(form, None)
+        return form
     
     def save(self, commit=True):
         # Don't try to save the new documents. Embedded objects don't have
