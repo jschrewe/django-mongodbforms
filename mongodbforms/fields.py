@@ -32,7 +32,7 @@ except ImportError:
     from pymongo.objectid import ObjectId
     from pymongo.errors import InvalidId
     
-from .widgets import MultiWidget
+from .widgets import ListWidget
 
 class MongoChoiceIterator(object):
     def __init__(self, field):
@@ -148,17 +148,18 @@ class DocumentMultipleChoiceField(ReferenceField):
             return []
         if not isinstance(value, (list, tuple)):
             raise forms.ValidationError(self.error_messages['list'])
+        
         key = 'pk'
-
-        filter_ids = []
-        for pk in value:
-            try:
-                oid = ObjectId(pk)
-                filter_ids.append(oid)
-            except InvalidId:
-                raise forms.ValidationError(self.error_messages['invalid_pk_value'] % pk)
+#        filter_ids = []
+#        for pk in value:
+#            filter_ids.append(pk)
+#            try:
+#                oid = ObjectId(pk)
+#                filter_ids.append(oid)
+#            except InvalidId:
+#                raise forms.ValidationError(self.error_messages['invalid_pk_value'] % pk)
         qs = self.queryset.clone()
-        qs = qs.filter(**{'%s__in' % key: filter_ids})
+        qs = qs.filter(**{'%s__in' % key: value})
         pks = set([force_unicode(getattr(o, key)) for o in qs])
         for val in value:
             if force_unicode(val) not in pks:
@@ -194,11 +195,10 @@ class ListField(forms.Field):
     default_error_messages = {
         'invalid': _('Enter a list of values.'),
     }
-    widget = MultiWidget
+    widget = ListWidget
 
     def __init__(self, field_type, *args, **kwargs):
         self.field_type = field_type
-        self.fields = []
         widget = self.field_type().widget
         if isinstance(widget, type):
             w_type = widget
@@ -210,17 +210,6 @@ class ListField(forms.Field):
         
         if not hasattr(self, 'empty_values'):
             self.empty_values = list(EMPTY_VALUES)
-        
-    def _init_fields(self, initial):
-        empty_val = ['',]
-        if initial is None:
-            initial = empty_val
-        else:
-            initial = initial + empty_val
-            
-        fields = [self.field_type(initial=d) for d in initial]
-        
-        return fields
 
     def validate(self, value):
         pass
@@ -268,7 +257,9 @@ class ListField(forms.Field):
     def _has_changed(self, initial, data):
         if initial is None:
             initial = ['' for x in range(0, len(data))]
-        for field, initial, data in zip(self.fields, initial, data):
+        
+        field = self.field_type(required=self.required) 
+        for initial, data in zip(initial, data):
             if field._has_changed(initial, data):
                 return True
         return False

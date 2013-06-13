@@ -5,7 +5,7 @@ from django.utils.safestring import mark_safe
 from django.core.validators import EMPTY_VALUES
 
 
-class MultiWidget(Widget):
+class ListWidget(Widget):
     """
     A widget that is composed of multiple widgets.
 
@@ -35,23 +35,25 @@ class MultiWidget(Widget):
     def __init__(self, widget_type, attrs=None):
         self.widget_type = widget_type
         self.widgets = []
-        super(MultiWidget, self).__init__(attrs)
+        super(ListWidget, self).__init__(attrs)
 
     def render(self, name, value, attrs=None):
-        if not isinstance(value, list):
-            # Yes! This is a stub. Some exception should be raised here I suppose
-            # I'm totally not sure which one though.
-            pass
+        if value is not None and not isinstance(value, (list, tuple)):
+            raise TypeError("Value supplied for %s must be a list or tuple." % name)
+        
         if value is not None:
             self.widgets = [self.widget_type() for v in value]
+            
         if value is None or (len(value[-1:]) == 0 or value[-1:][0] != ''):
-            # add an empty field to be able to add data
+            # there should be exactly one empty widget at the end of the list 
             empty_widget = self.widget_type()
             empty_widget.is_required = False
             self.widgets.append(empty_widget) 
+            
         if self.is_localized:
             for widget in self.widgets:
                 widget.is_localized = self.is_localized
+                
         output = []
         final_attrs = self.build_attrs(attrs)
         id_ = final_attrs.get('id', None)
@@ -101,7 +103,10 @@ class MultiWidget(Widget):
     media = property(_get_media)
 
     def __deepcopy__(self, memo):
-        obj = super(MultiWidget, self).__deepcopy__(memo)
+        obj = super(ListWidget, self).__deepcopy__(memo)
         obj.widgets = copy.deepcopy(self.widgets)
         obj.widget_type = copy.deepcopy(self.widget_type)
         return obj
+    
+    
+    
