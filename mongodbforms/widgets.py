@@ -41,6 +41,9 @@ class ListWidget(Widget):
         if value is not None and not isinstance(value, (list, tuple)):
             raise TypeError("Value supplied for %s must be a list or tuple." % name)
         
+        # save the name should we need it later
+        self._name = name
+        
         if value is not None:
             self.widgets = [self.widget_type() for v in value]
             
@@ -108,5 +111,27 @@ class ListWidget(Widget):
         obj.widget_type = copy.deepcopy(self.widget_type)
         return obj
     
+class DynamicListWidget(ListWidget):
+    def format_output(self, rendered_widgets):
+        """
+        Given a list of rendered widgets (as strings), returns a Unicode string
+        representing the HTML for the whole lot.
+
+        This hook allows you to format the HTML design of the widgets, if
+        needed.
+        """
+        output = []
+        for widget in rendered_widgets:
+            output.append("<p>%s</p>" % widget)
+        output.append('<script type="text/javascript">mdbf.onDomReady(mdbf.init("field-%s"))</script>' % self._name)
+        return ''.join(output)
     
+    def _get_media(self):
+        "Media for a multiwidget is the combination of all media of the subwidgets"
+        media = Media(js=('mongodbforms/dynamiclistwidget.js',))
+        for w in self.widgets:
+            media = media + w.media
+        return media
+    media = property(_get_media)
+        
     

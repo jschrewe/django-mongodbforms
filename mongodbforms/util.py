@@ -15,7 +15,6 @@ def init_document_options(document):
 def get_document_options(document):
     return DocumentMetaWrapper(document)
 
-
 # Taken from six (https://pypi.python.org/pypi/six)
 # by "Benjamin Peterson <benjamin@python.org>"
 #
