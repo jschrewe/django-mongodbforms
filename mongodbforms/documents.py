@@ -387,7 +387,7 @@ class BaseDocumentForm(BaseForm):
     def validate_unique(self):
         """
         Validates unique constrains on the document.
-        unique_with is not checked at the moment.
+        unique_with is supported now.
         """
         errors = []
         exclude = self._get_validation_exclusions()
@@ -396,6 +396,9 @@ class BaseDocumentForm(BaseForm):
                 filter_kwargs = {
                     f.name: getattr(self.instance, f.name)
                 }
+                if f.unique_with:
+                    for u_with in f.unique_with:
+                        filter_kwargs[u_with] = getattr(self.instance, u_with)
                 qs = self.instance.__class__.objects().filter(**filter_kwargs)
                 # Exclude the current object from the query if we are editing an
                 # instance (as opposed to creating a new one)
