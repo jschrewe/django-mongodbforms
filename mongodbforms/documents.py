@@ -826,8 +826,7 @@ def inlineformset_factory(document, form=DocumentForm,
 #    FormSet.rel_field = rel_field
 #    return FormSet
 
-
-class EmbeddedDocumentFormSet(BaseDocumentFormSet):
+class EmbeddedDocumentFormSet(BaseInlineDocumentFormSet):
     def __init__(self, data=None, files=None, instance=None,
                  save_as_new=False, prefix=None, queryset=[], parent_document=None, **kwargs):
         self.parent_document = parent_document
@@ -838,6 +837,17 @@ class EmbeddedDocumentFormSet(BaseDocumentFormSet):
         defaults.update(kwargs)
         form = super(EmbeddedDocumentFormSet, self)._construct_form(i, **defaults)
         return form
+
+    @property
+    def empty_form(self):
+        form = self.form(
+            self.parent_document,
+            auto_id=self.auto_id,
+            prefix=self.add_prefix('__prefix__'),
+            empty_permitted=True,
+        )
+        self.add_fields(form, None)
+        return form
     
     def save(self, commit=True):
         # Don't try to save the new documents. Embedded objects don't have
@@ -846,8 +856,22 @@ class EmbeddedDocumentFormSet(BaseDocumentFormSet):
         
         if commit and self.parent_document is not None:
             form = self.empty_form
-            attr_data = getattr(self.parent_document, form._meta.embedded_field, [])
-            setattr(self.parent_document, form._meta.embedded_field, attr_data + objs)
+            # The thing about formsets is that the base use case is to edit *all*
+            # of the associated objects on a model. As written, using these FormSets this
+            # way will cause the existing embedded documents to get saved along with a
+            # copy of themselves plus any new ones you added.
+            #
+            # The only way you could do "updates" of existing embedded document fields is
+            # if those embedded documents had ObjectIDs of their own, which they don't
+            # by default in Mongoengine.
+            #
+            # In this case it makes the most sense to simply replace the embedded field
+            # with the new values gathered form the formset, rather than adding the new
+            # values to the existing values, because the new values will almost always
+            # contain the old values (with the default use case.)
+            #
+            # attr_data = getattr(self.parent_document, form._meta.embedded_field, [])
+            setattr(self.parent_document, form._meta.embedded_field, objs or [])
             self.parent_document.save()
         
         return objs 
