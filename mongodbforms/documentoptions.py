@@ -47,9 +47,13 @@ class DocumentMetaWrapper(MutableMapping):
     _field_cache = None
     document = None
     _meta = None
+    concrete_model = None
     
     def __init__(self, document):
         self.document = document
+        # used by Django to distinguish between abstract and concrete models
+        # here for now always the document
+        self.concrete_model = document
         self._meta = getattr(document, '_meta', {})
         
         try:
@@ -123,7 +127,7 @@ class DocumentMetaWrapper(MutableMapping):
             self.document._pk_val = getattr(self.document, self.pk_name)
             # avoid circular import
             from mongodbforms.util import patch_document
-            def _get_pk_val():
+            def _get_pk_val(self):
                 return self._pk_val
             patch_document(_get_pk_val, self.document)
         except AttributeError:
