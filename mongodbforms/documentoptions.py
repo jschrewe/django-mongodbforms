@@ -11,8 +11,6 @@ from django.db.models.options import get_verbose_name
 def create_verbose_name(name):
     name = get_verbose_name(name)
     name.replace('_', ' ')
-    print "create_verbose_name"
-    print name
     return name
 
 class PkWrapper(object):
