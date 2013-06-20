@@ -356,7 +356,7 @@ class BaseDocumentForm(BaseForm):
                 value = getattr(self.instance, f.name)
                 if f.name not in exclude:
                     f.validate(value)
-                elif value == '':
+                elif value == '' or value == []:
                     # mongoengine chokes on empty strings for fields
                     # that are not required. Clean them up here, though
                     # this is maybe not the right place :-)
