@@ -3,10 +3,9 @@ from collections import MutableMapping
 
 from django.db.models.fields import FieldDoesNotExist
 from django.utils.text import capfirst
+from django.db.models.options import get_verbose_name
 
 from mongoengine.fields import ReferenceField
-
-from django.db.models.options import get_verbose_name
 
 def create_verbose_name(name):
     name = get_verbose_name(name)

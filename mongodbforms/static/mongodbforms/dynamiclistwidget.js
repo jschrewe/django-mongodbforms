@@ -353,6 +353,12 @@
 
 	}();
 
+	window.mdbf.EmptyInput = mdbf.Class({
+		constructor: function EmptyInput(elem) {
+			
+		},
+	});
+	
 	window.mdbf.FieldClass = mdbf.Class({
 		constructor: function FieldClass(class_name) {
 			// name of the field. used to generate additional fields
@@ -368,6 +374,7 @@
 			this.empty_input.name = '';
 			console.log(this.inputs);
 		},
+		
 	});
 	
 	window.mdbf.init = function(class_name) {
