@@ -481,7 +481,7 @@ class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentFor
                 self._meta.embedded_field in parent_document._fields:
             raise FieldError("Parent document must have field %s" % self._meta.embedded_field)
         
-        if isinstance(self.parent_document._fields.get(self._meta.embedded_field), ListField):
+        if isinstance(parent_document._fields.get(self._meta.embedded_field), ListField):
             # if we received a list position of the instance and no instance
             # load the instance from the parent document and proceed as normal
             if instance is None and position is not None:
@@ -492,7 +492,11 @@ class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentFor
             # one will be edited. That nay or may not be the right one.
             if instance is not None and position is None:
                 emb_list = getattr(parent_document, self._meta.embedded_field)
-                [i for i, obj in enumerate(emb_list) if obj == instance]
+                position = [i for i, obj in enumerate(emb_list) if obj == instance]
+                if len(position) > 0:
+                    position = position[0]
+                else:
+                    position = None
             
         super(EmbeddedDocumentForm, self).__init__(instance=instance, *args, **kwargs)
         self.parent_document = parent_document
