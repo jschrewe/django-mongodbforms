@@ -26,18 +26,23 @@ For embedded documents use `EmbeddedDocumentForm`. The Meta-object of the form h
 
 If no position is provided the form adds a new embedded document to the list if the form is saved. To edit an embedded document stored in a list field the position argument is required. If you provide a position and no instance to the form the instance is automatically loaded using the position argument. If the embedded field is a plain embedded field the current object is overwritten.
 
-    # forms.py
-    from mongodbforms import EmbeddedDocumentForm
+````python
+# forms.py
+from mongodbforms import EmbeddedDocumentForm
     
-    class MessageForm(EmbeddedDocumentForm):
-        class Meta:
-		    document = Message
-		    embedded_field_name = 'messages'
+class MessageForm(EmbeddedDocumentForm):
+    class Meta:
+	    document = Message
+	    embedded_field_name = 'messages'
     
-		    fields = ['subject', 'sender', 'message',]
+	    fields = ['subject', 'sender', 'message',]
 
-    # views.py
-    form = MessageForm(parent_document=some_document, ...)
+# views.py
+# create a new embedded object
+form = MessageForm(parent_document=some_document, ...)
+# edit the 4th embedded object
+form = MessageForm(parent_document=some_document, position=3, ...)
+```
 
 ## Documentation
 
