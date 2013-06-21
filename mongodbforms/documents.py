@@ -477,6 +477,10 @@ def documentform_factory(document, form=DocumentForm, fields=None, exclude=None,
 class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentForm)):
 
     def __init__(self, parent_document, instance=None, position=None, *args, **kwargs):
+        if self._meta.embedded_field is not None and not \
+                self._meta.embedded_field in parent_document._fields:
+            raise FieldError("Parent document must have field %s" % self._meta.embedded_field)
+        
         # if we received a list position of the instance and no instance
         # load the instance from the parent document and preceed as normal
         if instance is None and position is not None:
@@ -485,9 +489,6 @@ class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentFor
         super(EmbeddedDocumentForm, self).__init__(instance=instance, *args, **kwargs)
         self.parent_document = parent_document
         self.position = position
-        if self._meta.embedded_field is not None and not \
-                self._meta.embedded_field in self.parent_document._fields:
-            raise FieldError("Parent document must have field %s" % self._meta.embedded_field)
         
     def save(self, commit=True):
         """If commit is True the embedded document is added to the parent
