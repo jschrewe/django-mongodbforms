@@ -17,6 +17,7 @@ try:
     from mongoengine.base import ValidationError
 except ImportError:
     from mongoengine.errors import ValidationError
+from mongoengine.queryset import OperationError
 from mongoengine.connection import _get_db
 from gridfs import GridFS
 
@@ -474,9 +475,11 @@ def documentform_factory(document, form=DocumentForm, fields=None, exclude=None,
 
 
 class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentForm)):
-    def __init__(self, parent_document, *args, **kwargs):
+
+    def __init__(self, parent_document, position=None, *args, **kwargs):
         super(EmbeddedDocumentForm, self).__init__(*args, **kwargs)
         self.parent_document = parent_document
+        self.position = position
         if self._meta.embedded_field is not None and not \
                 self._meta.embedded_field in self.parent_document._fields:
             raise FieldError("Parent document must have field %s" % self._meta.embedded_field)
@@ -491,20 +494,26 @@ class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentFor
                          " validate." % self.instance.__class__.__name__)
         
         if commit:
-            field = self.parent_document._fields.get(self._meta.embedded_field) 
-            if isinstance(field, ListField) and field.default is None:
-                default = []
+            field = self.parent_document._fields.get(self._meta.embedded_field)
+            if isinstance(field, ListField):
+                if self.position is None:
+                    # no position given, simply appending to ListField
+                    try:
+                        self.parent_document.update(**{"push__" + self._meta.embedded_field: self.instance})
+                    except:
+                        raise OperationError("The %s could not be appended." % self.instance.__class__.__name__)
+                else:
+                    # updating ListField at given position
+                    try:
+                        self.parent_document.update(**{"__".join(("set", self._meta.embedded_field,
+                                                                  str(self.position))): self.instance})
+                    except:
+                        raise OperationError("The %s could not be updated at position "
+                                             "%d." % (self.instance.__class__.__name__, self.position))
             else:
-                default = field.default
-            attr = getattr(self.parent_document, self._meta.embedded_field, default)
-            try:
-                attr.append(self.instance)
-            except AttributeError:
                 # not a listfield on parent, treat as an embedded field
-                attr = self.instance
-            setattr(self.parent_document, self._meta.embedded_field, attr)
-            self.parent_document.save() 
-        
+                setattr(self.parent_document, self._meta.embedded_field, self.instance)
+                self.parent_document.save() 
         return self.instance
 
 
