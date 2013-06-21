@@ -481,10 +481,18 @@ class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentFor
                 self._meta.embedded_field in parent_document._fields:
             raise FieldError("Parent document must have field %s" % self._meta.embedded_field)
         
-        # if we received a list position of the instance and no instance
-        # load the instance from the parent document and preceed as normal
-        if instance is None and position is not None:
-            instance = getattr(parent_document, self._meta.embedded_field)[position]
+        if isinstance(self.parent_document._fields.get(self._meta.embedded_field), ListField):
+            # if we received a list position of the instance and no instance
+            # load the instance from the parent document and proceed as normal
+            if instance is None and position is not None:
+                instance = getattr(parent_document, self._meta.embedded_field)[position]
+            
+            # same as above only the other way around. Note: Mongoengine defines equality
+            # as having the same data, so if you have 2 objects with the same data the first
+            # one will be edited. That nay or may not be the right one.
+            if instance is not None and position is None:
+                emb_list = getattr(parent_document, self._meta.embedded_field)
+                [i for i, obj in enumerate(emb_list) if obj == instance]
             
         super(EmbeddedDocumentForm, self).__init__(instance=instance, *args, **kwargs)
         self.parent_document = parent_document

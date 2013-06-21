@@ -26,7 +26,9 @@ class BlogForm(DocumentForm)
 
 For embedded documents use `EmbeddedDocumentForm`. The Meta-object of the form has to be provided with an embedded field name. The embedded object is appended to this. The form constructor takes a couple of additional arguments: The document the embedded document gets added to and an optional position argument.
 
-If no position is provided the form adds a new embedded document to the list if the form is saved. To edit an embedded document stored in a list field the position argument is required. If you provide a position and no instance to the form the instance is automatically loaded using the position argument. If the embedded field is a plain embedded field the current object is overwritten.
+If no position is provided the form adds a new embedded document to the list if the form is saved. To edit an embedded document stored in a list field the position argument is required. If you provide a position and no instance to the form the instance is automatically loaded using the position argument. 
+
+If the embedded field is a plain embedded field the current object is simply overwritten.
 
 ````python
 # forms.py
