@@ -864,7 +864,14 @@ class EmbeddedDocumentFormSet(BaseInlineDocumentFormSet):
         
     def _construct_form(self, i, **kwargs):
         defaults = {'parent_document': self.parent_document}
+        
+        # add position argument to the form. Otherwise we will spend
+        # a huge amount of time iterating over the list field on form __init__
+        emb_list = getattr(self.parent_document, self.form._meta.embedded_field)
+        if len(emb_list) <= i:
+            defaults['position'] = i
         defaults.update(kwargs)
+        
         form = super(EmbeddedDocumentFormSet, self)._construct_form(i, **defaults)
         return form
 
