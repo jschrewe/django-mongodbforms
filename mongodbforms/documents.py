@@ -107,7 +107,10 @@ def save_instance(form, instance, fields=None, fail_message='saved',
             new_data = dict([(n, f) for n, f in data.items() if not n in form._delete_before_save])
             if hasattr(instance, '_changed_fields'):
                 for field in form._delete_before_save:
-                    instance._changed_fields.remove(field)
+                    try:
+                        instance._changed_fields.remove(field)
+                    except ValueError:
+                        pass
             instance._data = new_data
             instance.save()
             instance._data = data
@@ -489,14 +492,10 @@ class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentFor
             
             # same as above only the other way around. Note: Mongoengine defines equality
             # as having the same data, so if you have 2 objects with the same data the first
-            # one will be edited. That nay or may not be the right one.
+            # one will be edited. That may or may not be the right one.
             if instance is not None and position is None:
                 emb_list = getattr(parent_document, self._meta.embedded_field)
-                position = [i for i, obj in enumerate(emb_list) if obj == instance]
-                if len(position) > 0:
-                    position = position[0]
-                else:
-                    position = None
+                position = next((i for i, obj in enumerate(emb_list) if obj == instance), None)
             
         super(EmbeddedDocumentForm, self).__init__(instance=instance, *args, **kwargs)
         self.parent_document = parent_document
@@ -513,21 +512,20 @@ class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentFor
         
         if commit:
             field = self.parent_document._fields.get(self._meta.embedded_field)
-            if isinstance(field, ListField):
-                if self.position is None:
-                    # no position given, simply appending to ListField
-                    try:
-                        self.parent_document.update(**{"push__" + self._meta.embedded_field: self.instance})
-                    except:
-                        raise OperationError("The %s could not be appended." % self.instance.__class__.__name__)
-                else:
-                    # updating ListField at given position
-                    try:
-                        self.parent_document.update(**{"__".join(("set", self._meta.embedded_field,
-                                                                  str(self.position))): self.instance})
-                    except:
-                        raise OperationError("The %s could not be updated at position "
-                                             "%d." % (self.instance.__class__.__name__, self.position))
+            if isinstance(field, ListField) and self.position is None:
+                # no position given, simply appending to ListField
+                try:
+                    self.parent_document.update(**{"push__" + self._meta.embedded_field: self.instance})
+                except:
+                    raise OperationError("The %s could not be appended." % self.instance.__class__.__name__)
+            elif isinstance(field, ListField) and self.position is not None:
+                # updating ListField at given position
+                try:
+                    self.parent_document.update(**{"__".join(("set", self._meta.embedded_field,
+                                                                str(self.position))): self.instance})
+                except:
+                    raise OperationError("The %s could not be updated at position "
+                                            "%d." % (self.instance.__class__.__name__, self.position))
             else:
                 # not a listfield on parent, treat as an embedded field
                 setattr(self.parent_document, self._meta.embedded_field, self.instance)
@@ -655,7 +653,7 @@ class BaseInlineDocumentFormSet(BaseDocumentFormSet):
 
     #@classmethod
     def get_default_prefix(cls):
-        return cls.model.__name__.lower()
+        return cls.document.__name__.lower()
     get_default_prefix = classmethod(get_default_prefix)
     
 
@@ -856,11 +854,11 @@ def inlineformset_factory(document, form=DocumentForm,
 #    FormSet.rel_field = rel_field
 #    return FormSet
 
-class EmbeddedDocumentFormSet(BaseInlineDocumentFormSet):
-    def __init__(self, data=None, files=None, instance=None,
-                 save_as_new=False, prefix=None, queryset=[], parent_document=None, **kwargs):
+class EmbeddedDocumentFormSet(BaseDocumentFormSet):
+    def __init__(self, data=None, files=None, save_as_new=False, 
+                 prefix=None, queryset=[], parent_document=None, **kwargs):
         self.parent_document = parent_document
-        super(EmbeddedDocumentFormSet, self).__init__(data, files, instance, save_as_new, prefix, queryset, **kwargs)
+        super(EmbeddedDocumentFormSet, self).__init__(data, files, save_as_new, prefix, queryset, **kwargs)
         
     def _construct_form(self, i, **kwargs):
         defaults = {'parent_document': self.parent_document}
@@ -868,7 +866,7 @@ class EmbeddedDocumentFormSet(BaseInlineDocumentFormSet):
         # add position argument to the form. Otherwise we will spend
         # a huge amount of time iterating over the list field on form __init__
         emb_list = getattr(self.parent_document, self.form._meta.embedded_field)
-        if len(emb_list) <= i:
+        if len(emb_list) < i:
             defaults['position'] = i
         defaults.update(kwargs)
         
@@ -937,5 +935,4 @@ def embeddedformset_factory(document, parent_document, form=EmbeddedDocumentForm
         'max_num': max_num,
     }
     FormSet = documentformset_factory(document, **kwargs)
-    FormSet.parent_document = parent_document
     return FormSet
