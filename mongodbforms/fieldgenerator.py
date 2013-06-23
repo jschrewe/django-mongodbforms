@@ -19,7 +19,7 @@ from django.utils.text import capfirst
 
 from mongoengine import ReferenceField as MongoReferenceField, EmbeddedDocumentField as MongoEmbeddedDocumentField
 
-from .fields import MongoCharField, ReferenceField, DocumentMultipleChoiceField, ListField
+from .fields import MongoCharField, ReferenceField, DocumentMultipleChoiceField, ListField, MapField
 
 BLANK_CHOICE_DASH = [("", "---------")]
 
@@ -257,8 +257,17 @@ class MongoFormFieldGenerator(object):
             defaults.update(kwargs)
             # figure out which type of field is stored in the list
             form_field = self.generate(field.field)
-            f = ListField(form_field.__class__, **defaults)
-            return f
+            return ListField(form_field.__class__, **defaults)
+        
+    def generate_mapfield(self, field, **kwargs):
+        defaults = {
+            'label': self.get_field_label(field),
+            'help_text': self.get_field_help_text(field),
+            'required': field.required
+        }
+        defaults.update(kwargs)
+        form_field = self.generate(field.field)
+        return MapField(form_field.__class__, **defaults)
 
     def generate_filefield(self, field, **kwargs):
         defaults = {

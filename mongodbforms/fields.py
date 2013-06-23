@@ -6,7 +6,7 @@ Wilson Júnior (wilsonpjunior@gmail.com).
 """
 
 from django import forms
-from django.core.validators import EMPTY_VALUES
+from django.core.validators import EMPTY_VALUES, MinLengthValidator, MaxLengthValidator
 
 try:
     from django.utils.encoding import force_text as force_unicode
@@ -32,7 +32,7 @@ except ImportError:
     from pymongo.objectid import ObjectId
     from pymongo.errors import InvalidId
     
-from .widgets import ListWidget
+from .widgets import ListWidget, MapWidget
 
 class MongoChoiceIterator(object):
     def __init__(self, field):
@@ -236,8 +236,6 @@ class ListField(forms.Field):
         
         field = self.field_type(required=self.required)
         for field_value in value:
-            if self.required and field_value in self.empty_values:
-                raise ValidationError(self.error_messages['required'])
             try:
                 clean_data.append(field.clean(field_value))
             except ValidationError as e:
@@ -263,4 +261,137 @@ class ListField(forms.Field):
             if field._has_changed(initial, data):
                 return True
         return False
+
+class MapField(forms.Field):
+    default_error_messages = {
+        'invalid': _('Enter a list of values.'),
+        'key_required': _('A key is required.'),
+    }
+    widget = MapWidget
+
+    def __init__(self, field_type, max_key_length=None, min_key_length=None, 
+                 key_validators=[], field_kwargs={}, *args, **kwargs):
+        
+        widget = field_type().widget
+        if isinstance(widget, type):
+            w_type = widget
+        else:
+            w_type = widget.__class__
+        self.widget = self.widget(w_type)
+        
+        super(MapField, self).__init__(*args, **kwargs)
+        
+        self.key_validators = key_validators
+        if min_key_length is not None:
+            self.key_validators.append(MinLengthValidator(int(min_key_length)))
+        if max_key_length is not None:
+            self.key_validators.append(MaxLengthValidator(int(max_key_length)))
+        
+        # type of field used to store the dicts value
+        self.field_type = field_type
+        field_kwargs['required'] = self.required
+        self.field_kwargs = field_kwargs
+        
+        if not hasattr(self, 'empty_values'):
+            self.empty_values = list(EMPTY_VALUES)
+
+    def _validate_key(self, key):
+        if key in self.empty_values and self.required:
+            raise ValidationError(self.error_messages['key_required'], code='key_required')
+        errors = []
+        for v in self.key_validators:
+            try:
+                v(key)
+            except ValidationError as e:
+                if hasattr(e, 'code'):
+                    code = 'key_%s' % e.code
+                    if code in self.error_messages:
+                        e.message = self.error_messages[e.code]
+                errors.extend(e.error_list)
+        if errors:
+            raise ValidationError(errors)
+
+    def validate(self, value):
+        pass
+
+    def clean(self, value):
+        """
+        Validates every value in the given list. A value is validated against
+        the corresponding Field in self.fields.
+
+        For example, if this MultiValueField was instantiated with
+        fields=(DateField(), TimeField()), clean() would call
+        DateField.clean(value[0]) and TimeField.clean(value[1]).
+        """
+        clean_data = {}
+        errors = ErrorList()
+        if not value or isinstance(value, dict):
+            if not value or not [v for v in value.values() if v not in self.empty_values]:
+                if self.required:
+                    raise ValidationError(self.error_messages['required'])
+                else:
+                    return {}
+        else:
+            raise ValidationError(self.error_messages['invalid'])
+        
+        # sort out required => at least one element must be in there
+        
+        data_field = self.field_type(**self.field_kwargs)
+        for key, val in value.items():
+            # ignore empties. Can they even come up here?
+            if key in self.empty_values and val in self.empty_values:
+                continue
+            
+            try:
+                val = data_field.clean(val)
+            except ValidationError as e:
+                # Collect all validation errors in a single list, which we'll
+                # raise at the end of clean(), rather than raising a single
+                # exception for the first error we encounter.
+                errors.extend(e.messages)
+                
+            try:
+                self._validate_key(key)
+            except ValidationError as e:
+                # Collect all validation errors in a single list, which we'll
+                # raise at the end of clean(), rather than raising a single
+                # exception for the first error we encounter.
+                errors.extend(e.messages)
+            
+            clean_data[key] = val
+                
+            if data_field.required:
+                data_field.required = False
+                
+        if errors:
+            raise ValidationError(errors)
+
+        self.validate(clean_data)
+        self.run_validators(clean_data)
+        return clean_data
+
+    def _has_changed(self, initial, data):
+        field = self.field_type(**self.field_kwargs)
+        for k, v in data.items():
+            if initial is None:
+                init_val = ''
+            else:
+                try:
+                    init_val = initial[k]
+                except KeyError:
+                    return True
+            if field._has_changed(init_val, v):
+                return True
+        return False
+
+
+
+
+
+
+
+
+
+
+
 
