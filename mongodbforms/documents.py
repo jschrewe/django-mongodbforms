@@ -23,7 +23,6 @@ from gridfs import GridFS
 
 from .fieldgenerator import MongoDefaultFormFieldGenerator
 from .documentoptions import DocumentMetaWrapper
-
 from .util import with_metaclass
 
 
@@ -48,9 +47,9 @@ class FakeDocument(object):
         
         self._fields[key] = field
     
-    # don't care if anything gets marked on this
+    # We don't care if anything gets marked on this
     # we do update a real field later though. That should
-    # trigger the same thing on the real document though.
+    # trigger the same thing on the real document.
     def _mark_as_changed(self, key):
         pass
     
@@ -59,8 +58,6 @@ def _save_iterator_file(field, uploaded_file, file_data=None):
     Takes care of saving a file for a list field. Returns a Mongoengine
     fileproxy object or the file field.
     """
-    uploaded_file.seek(0)
-    filename = _get_unique_filename(uploaded_file.name)
     fake_document = FakeDocument(field.name, field.field)
     overwrote_instance = False
     overwrote_key = False
@@ -79,7 +76,9 @@ def _save_iterator_file(field, uploaded_file, file_data=None):
     
     if file_data.grid_id:
         file_data.delete()
-    
+        
+    uploaded_file.seek(0)
+    filename = _get_unique_filename(uploaded_file.name)
     file_data.put(uploaded_file, content_type=uploaded_file.content_type, filename=filename)
     file_data.close()
     
@@ -123,7 +122,7 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
         if isinstance(f, MapField):
             map_field = getattr(instance, f.name)
             uploads = cleaned_data[f.name]
-            for key, uploaded_file in uploads.items(): 
+            for key, uploaded_file in uploads.items():
                 if uploaded_file is None:
                     continue
                 file_data = map_field.get(key, None)
