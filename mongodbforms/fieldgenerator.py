@@ -25,6 +25,12 @@ BLANK_CHOICE_DASH = [("", "---------")]
 
 class MongoFormFieldGenerator(object):
     """This class generates Django form-fields for mongoengine-fields."""
+    
+    # used for fields that fit in one of the generate functions
+    # but don't actually have the name.
+    field_map = {
+        'sortedlistfield': 'generate_listfield',
+    }
 
     def generate(self, field, **kwargs):
         """Tries to lookup a matching formfield generator (lowercase
@@ -37,11 +43,14 @@ class MongoFormFieldGenerator(object):
 
         for cls in field.__class__.__bases__:
             cls_name = cls.__name__.lower()
-            if hasattr(self, 'generate_%s' % cls_name):
+            try:
                 return getattr(self, 'generate_%s' % cls_name)(field, **kwargs)
-
-        raise NotImplementedError('%s is not supported by MongoForm' % \
-                                          field.__class__.__name__)
+            except AttributeError:
+                if cls_name in self.field_map:
+                    return getattr(self, self.field_map.get(cls_name))(field, **kwargs)
+                else:
+                    raise NotImplementedError('%s is not supported by MongoForm' % \
+                                field.__class__.__name__)
 
     def get_field_choices(self, field, include_blank=True,
                           blank_choice=BLANK_CHOICE_DASH):
