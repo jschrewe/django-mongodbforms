@@ -12,7 +12,7 @@ from django.forms.formsets import BaseFormSet, formset_factory
 from django.utils.translation import ugettext_lazy as _, ugettext
 from django.utils.text import capfirst
 
-from mongoengine.fields import ObjectIdField, ListField, ReferenceField, FileField, ImageField
+from mongoengine.fields import ObjectIdField, ListField, ReferenceField, FileField, MapField
 try:
     from mongoengine.base import ValidationError
 except ImportError:
@@ -35,6 +35,20 @@ def _get_unique_filename(name):
         # file_ext includes the dot.
         name = os.path.join("%s_%s%s" % (file_root, next(count), file_ext))
     return name
+
+# The awesome Mongoengine ImageGridFsProxy wants to pull a field
+# from a document to get necessary data. Trouble is that this doesn't work
+# if the ImageField is stored on List or MapField. So we pass a nice fake
+# document to 
+class FakeDocument(object):
+    def __init__(self, key, field):
+        super(FakeDocument, self).__init__()
+        if not hasattr(self, '_fields'):
+            self._fields = {}
+        self._fields.update({key: field})
+
+    def _mark_as_changed(self, key):
+        pass
 
 def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
     """
@@ -60,26 +74,63 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
             continue
         # Defer saving file-type fields until after the other fields, so a
         # callable upload_to can use the values from other fields.
-        if isinstance(f, FileField) or isinstance(f, ImageField):
+        if isinstance(f, FileField) or (isinstance(f, (MapField, ListField)) and isinstance(f.field, FileField)):
             file_field_list.append(f)
         else:
             setattr(instance, f.name, cleaned_data.get(f.name))
 
     for f in file_field_list:
-        upload = cleaned_data[f.name]
-        if upload is None:
-            continue
-        field = getattr(instance, f.name)
-        try:
-            upload.file.seek(0)
-            filename = _get_unique_filename(upload.name)
-            field.replace(upload, content_type=upload.content_type, filename=filename)
-            setattr(instance, f.name, field)
-        except AttributeError:
-            # file was already uploaded and not changed during edit.
-            # upload is already the gridfsproxy object we need.
-            upload.get()
-            setattr(instance, f.name, upload)
+        if isinstance(f, MapField):
+            map_field = getattr(instance, f.name)
+            uploads = cleaned_data[f.name]
+            for key, uploaded_file in uploads.items(): 
+                if uploaded_file is None:
+                    continue
+                
+                file_data = map_field.get(key, None)
+                uploaded_file.seek(0)
+                filename = _get_unique_filename(uploaded_file.name)
+                # add a file
+                _fake_document = FakeDocument(f.name, f.field)
+                overwrote_instance = False
+                overwrote_key = False
+                if file_data is None:
+                    proxy = f.field.proxy_class(instance=_fake_document, key=f.name)
+                    proxy.put(uploaded_file, content_type=uploaded_file.content_type, filename=filename)
+                    proxy.instance = None
+                    proxy.key = None
+                    map_field[key] = proxy
+                else:
+                    if file_data.instance is None:
+                        overwrote_instance = True
+                        file_data.instance = _fake_document
+                    if file_data.key is None:
+                        file_data.key = f.name
+                        overwrote_key = True
+                    file_data.delete()
+                    file_data.put(uploaded_file, content_type=uploaded_file.content_type, filename=filename)
+                    if overwrote_instance:
+                        file_data.instance = None
+                    if overwrote_key:
+                        file_data.key = None
+                    map_field[key] = file_data
+            setattr(instance, f.name, map_field)
+        else:
+            field = getattr(instance, f.name)
+            upload = cleaned_data[f.name]
+            if upload is None:
+                continue
+            
+            try:
+                upload.file.seek(0)
+                filename = _get_unique_filename(upload.name)
+                field.replace(upload, content_type=upload.content_type, filename=filename)
+                setattr(instance, f.name, field)
+            except AttributeError:
+                # file was already uploaded and not changed during edit.
+                # upload is already the gridfsproxy object we need.
+                upload.get()
+                setattr(instance, f.name, upload)
             
     return instance
 
@@ -360,7 +411,7 @@ class BaseDocumentForm(BaseForm):
                 value = getattr(self.instance, f.name)
                 if f.name not in exclude:
                     f.validate(value)
-                elif value is not False and not value: # in case of '' or [] or {}
+                elif value in EMPTY_VALUES:
                     # mongoengine chokes on empty strings for fields
                     # that are not required. Clean them up here, though
                     # this is maybe not the right place :-)
