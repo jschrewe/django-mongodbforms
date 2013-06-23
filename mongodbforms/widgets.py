@@ -163,7 +163,7 @@ class MapWidget(Widget):
         id_ = final_attrs.get('id', None)
         fieldset_attr = {}
         
-        value = value.items()
+        value = list(value.items()) # in Python 3.X dict.items() returns dynamic *view objects*
         value.append(('', ''))
         for i, (key, widget_value) in enumerate(value):
             if id_:
