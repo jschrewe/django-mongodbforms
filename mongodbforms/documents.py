@@ -53,6 +53,42 @@ class FakeDocument(object):
     # trigger the same thing on the real document though.
     def _mark_as_changed(self, key):
         pass
+    
+def _save_iterator_file(field, uploaded_file, file_data=None):
+    """
+    Takes care of saving a file for a list field. Returns a Mongoengine
+    fileproxy object or the file field.
+    """
+    uploaded_file.seek(0)
+    filename = _get_unique_filename(uploaded_file.name)
+    fake_document = FakeDocument(field.name, field.field)
+    overwrote_instance = False
+    overwrote_key = False
+    # for a new file we need a new proxy object
+    if file_data is None:
+        file_data = field.field.proxy_class(db_alias=field.field.db_alias,
+                            collection_name=field.field.collection_name)
+    
+    # overwrite an existing file
+    if file_data.instance is None:
+        file_data.instance = fake_document
+        overwrote_instance = True
+    if file_data.key is None:
+        file_data.key = field.name
+        overwrote_key = True
+    
+    if file_data.grid_id:
+        file_data.delete()
+    
+    file_data.put(uploaded_file, content_type=uploaded_file.content_type, filename=filename)
+    file_data.close()
+    
+    if overwrote_instance:
+        file_data.instance = None
+    if overwrote_key:
+        file_data.key = None
+        
+    return file_data
 
 def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
     """
@@ -90,40 +126,21 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
             for key, uploaded_file in uploads.items(): 
                 if uploaded_file is None:
                     continue
-                
                 file_data = map_field.get(key, None)
-                uploaded_file.seek(0)
-                filename = _get_unique_filename(uploaded_file.name)
-                fake_document = FakeDocument(f.name, f.field)
-                overwrote_instance = False
-                overwrote_key = False
-                # save a new file
-                if file_data is None:
-                    proxy = f.field.proxy_class(instance=fake_document, key=f.name, 
-                                                db_alias=f.field.db_alias,
-                                                collection_name=f.field.collection_name)
-                    proxy.put(uploaded_file, content_type=uploaded_file.content_type, filename=filename)
-                    proxy.close()
-                    proxy.instance = None
-                    proxy.key = None
-                    map_field[key] = proxy
-                # overwrite an existing file
-                else:
-                    if file_data.instance is None:
-                        file_data.instance = fake_document
-                        overwrote_instance = True
-                    if file_data.key is None:
-                        file_data.key = f.name
-                        overwrote_key = True
-                    file_data.delete()
-                    file_data.put(uploaded_file, content_type=uploaded_file.content_type, filename=filename)
-                    file_data.close()
-                    if overwrote_instance:
-                        file_data.instance = None
-                    if overwrote_key:
-                        file_data.key = None
-                    map_field[key] = file_data
+                map_field[key] = _save_iterator_file(f, uploaded_file, file_data)
             setattr(instance, f.name, map_field)
+        elif isinstance(f, ListField):
+            list_field = getattr(instance, f.name)
+            uploads = cleaned_data[f.name]
+            for i, uploaded_file in enumerate(uploads):
+                if uploaded_file is None:
+                    continue
+                try:
+                    file_data = list_field[i]
+                except IndexError:
+                    file_data = None
+                map_field[i] = _save_iterator_file(f, uploaded_file, file_data)
+            setattr(instance, f.name, list_field)
         else:
             field = getattr(instance, f.name)
             upload = cleaned_data[f.name]
