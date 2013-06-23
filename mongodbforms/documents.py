@@ -39,14 +39,18 @@ def _get_unique_filename(name):
 # The awesome Mongoengine ImageGridFsProxy wants to pull a field
 # from a document to get necessary data. Trouble is that this doesn't work
 # if the ImageField is stored on List or MapField. So we pass a nice fake
-# document to 
+# document to the proxy to get saving the file done. Yeah it really is that ugly.
 class FakeDocument(object):
+    _fields = {}
+    
     def __init__(self, key, field):
         super(FakeDocument, self).__init__()
-        if not hasattr(self, '_fields'):
-            self._fields = {}
-        self._fields.update({key: field})
-
+        
+        self._fields[key] = field
+    
+    # don't care if anything gets marked on this
+    # we do update a real field later though. That should
+    # trigger the same thing on the real document though.
     def _mark_as_changed(self, key):
         pass
 
@@ -90,30 +94,36 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
                 file_data = map_field.get(key, None)
                 uploaded_file.seek(0)
                 filename = _get_unique_filename(uploaded_file.name)
-                # add a file
-                _fake_document = FakeDocument(f.name, f.field)
+                fake_document = FakeDocument(f.name, f.field)
                 overwrote_instance = False
                 overwrote_key = False
+                # save a new file
                 if file_data is None:
-                    proxy = f.field.proxy_class(instance=_fake_document, key=f.name)
+                    proxy = f.field.proxy_class(instance=fake_document, key=f.name, 
+                                                db_alias=f.field.db_alias,
+                                                collection_name=f.field.collection_name)
                     proxy.put(uploaded_file, content_type=uploaded_file.content_type, filename=filename)
+                    proxy.close()
                     proxy.instance = None
                     proxy.key = None
                     map_field[key] = proxy
+                # overwrite an existing file
                 else:
                     if file_data.instance is None:
+                        file_data.instance = fake_document
                         overwrote_instance = True
-                        file_data.instance = _fake_document
                     if file_data.key is None:
                         file_data.key = f.name
                         overwrote_key = True
                     file_data.delete()
                     file_data.put(uploaded_file, content_type=uploaded_file.content_type, filename=filename)
+                    file_data.close()
                     if overwrote_instance:
                         file_data.instance = None
                     if overwrote_key:
                         file_data.key = None
                     map_field[key] = file_data
+            print map_field
             setattr(instance, f.name, map_field)
         else:
             field = getattr(instance, f.name)
