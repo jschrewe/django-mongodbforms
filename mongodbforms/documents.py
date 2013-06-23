@@ -123,7 +123,6 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
                     if overwrote_key:
                         file_data.key = None
                     map_field[key] = file_data
-            print map_field
             setattr(instance, f.name, map_field)
         else:
             field = getattr(instance, f.name)
