@@ -62,10 +62,8 @@ class ReferenceField(forms.ChoiceField):
     """
     Reference field for mongo forms. Inspired by `django.forms.models.ModelChoiceField`.
     """
-    def __init__(self, queryset, empty_label="---------",
-                 *aargs, **kwaargs):
-
-        forms.Field.__init__(self, *aargs, **kwaargs)
+    def __init__(self, queryset, empty_label="---------", *args, **kwargs):
+        forms.Field.__init__(self, *args, **kwargs)
         self.queryset = queryset
         self.empty_label = empty_label
 
@@ -150,14 +148,6 @@ class DocumentMultipleChoiceField(ReferenceField):
             raise forms.ValidationError(self.error_messages['list'])
         
         key = 'pk'
-#        filter_ids = []
-#        for pk in value:
-#            filter_ids.append(pk)
-#            try:
-#                oid = ObjectId(pk)
-#                filter_ids.append(oid)
-#            except InvalidId:
-#                raise forms.ValidationError(self.error_messages['invalid_pk_value'] % pk)
         qs = self.queryset.clone()
         qs = qs.filter(**{'%s__in' % key: value})
         pks = set([force_unicode(getattr(o, key)) for o in qs])
@@ -176,22 +166,6 @@ class DocumentMultipleChoiceField(ReferenceField):
     
     
 class ListField(forms.Field):
-    """
-    A Field that aggregates the logic of multiple Fields.
-
-    Its clean() method takes a "decompressed" list of values, which are then
-    cleaned into a single value according to self.fields. Each value in
-    this list is cleaned by the corresponding field -- the first value is
-    cleaned by the first field, the second value is cleaned by the second
-    field, etc. Once all fields are cleaned, the list of clean values is
-    "compressed" into a single value.
-
-    Subclasses should not have to implement clean(). Instead, they must
-    implement compress(), which takes a list of valid values and returns a
-    "compressed" version of those values -- a single value.
-
-    You'll probably want to use this with MultiWidget.
-    """
     default_error_messages = {
         'invalid': _('Enter a list of values.'),
     }
@@ -215,14 +189,6 @@ class ListField(forms.Field):
         pass
 
     def clean(self, value):
-        """
-        Validates every value in the given list. A value is validated against
-        the corresponding Field in self.fields.
-
-        For example, if this MultiValueField was instantiated with
-        fields=(DateField(), TimeField()), clean() would call
-        DateField.clean(value[0]) and TimeField.clean(value[1]).
-        """
         clean_data = []
         errors = ErrorList()
         if not value or isinstance(value, (list, tuple)):
@@ -315,14 +281,6 @@ class MapField(forms.Field):
         pass
 
     def clean(self, value):
-        """
-        Validates every value in the given list. A value is validated against
-        the corresponding Field in self.fields.
-
-        For example, if this MultiValueField was instantiated with
-        fields=(DateField(), TimeField()), clean() would call
-        DateField.clean(value[0]) and TimeField.clean(value[1]).
-        """
         clean_data = {}
         errors = ErrorList()
         if not value or isinstance(value, dict):

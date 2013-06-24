@@ -21,10 +21,11 @@ from mongoengine.queryset import OperationError
 from mongoengine.connection import _get_db
 from gridfs import GridFS
 
-from .fieldgenerator import MongoDefaultFormFieldGenerator
+#from .fieldgenerator import MongoDefaultFormFieldGenerator
 from .documentoptions import DocumentMetaWrapper
-from .util import with_metaclass
+from .util import with_metaclass, load_field_generator
 
+_fieldgenerator = load_field_generator()
 
 def _get_unique_filename(name):
     fs = GridFS(_get_db())
@@ -218,7 +219,7 @@ def document_to_dict(instance, fields=None, exclude=None):
     return data
 
 def fields_for_document(document, fields=None, exclude=None, widgets=None, \
-                        formfield_callback=None, field_generator=MongoDefaultFormFieldGenerator):
+                        formfield_callback=None, field_generator=_fieldgenerator):
     """
     Returns a ``SortedDict`` containing form fields for the given model.
 
@@ -293,7 +294,7 @@ class ModelFormOptions(object):
         self.exclude = getattr(options, 'exclude', None)
         self.widgets = getattr(options, 'widgets', None)
         self.embedded_field = getattr(options, 'embedded_field_name', None)
-        self.formfield_generator = getattr(options, 'formfield_generator', MongoDefaultFormFieldGenerator)
+        self.formfield_generator = getattr(options, 'formfield_generator', _fieldgenerator)
         
         
 class DocumentFormMetaclass(type):
@@ -314,7 +315,7 @@ class DocumentFormMetaclass(type):
         
         opts = new_class._meta = ModelFormOptions(getattr(new_class, 'Meta', None))
         if opts.document:
-            formfield_generator = getattr(opts, 'formfield_generator', MongoDefaultFormFieldGenerator)
+            formfield_generator = getattr(opts, 'formfield_generator', _fieldgenerator)
             
             # If a model is defined, extract form fields from it.
             fields = fields_for_document(opts.document, opts.fields,

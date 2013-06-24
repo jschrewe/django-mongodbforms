@@ -57,9 +57,16 @@ In theory the documentation [Django's modelform](https://docs.djangoproject.com/
 
 Because the fields on mongoengine documents have no notion of form fields mongodbform uses a generator class to generate the form field for a db field, which is not explicitly set. 
 
-If you want to use your own generator class you can use the ``formfield_generator`` option on the form's Meta class.
+To use your own field generator you can either set a generator for your whole project using ```MONGODBFORMS_FIELDGENERATOR``` in settings.py or you can use the ``formfield_generator`` option on the form's Meta class.
+
+The default generator is defined in ```mongodbforms/fieldgenerator.py``` and should make it easy to override form fields and widgets. If you set a generator on the document form you can also pass two dicts ```field_overrides``` and ```widget_overrides``` to ```__init__```. For a list of valid keys have a look at ```MongoFormFieldGenerator```.
 
 ````python
+# settings.py
+
+# set the fieldgeneretor for the whole application
+MONGODBFORMS_FIELDGENERATOR = 'myproject.fieldgenerator.GeneratorClass'
+
 # generator.py
 from mongodbforms.fieldgenerator import MongoFormFieldGenerator
 	
