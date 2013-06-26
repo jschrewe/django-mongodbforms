@@ -7,32 +7,6 @@ from django.forms.util import flatatt
 from django.utils.html import format_html
 
 class ListWidget(Widget):
-    """
-    A widget that is composed of multiple widgets.
-
-    Its render() method is different than other widgets', because it has to
-    figure out how to split a single value for display in multiple widgets.
-    The ``value`` argument can be one of two things:
-
-        * A list.
-        * A normal value (e.g., a string) that has been "compressed" from
-          a list of values.
-
-    In the second case -- i.e., if the value is NOT a list -- render() will
-    first "decompress" the value into a list before rendering it. It does so by
-    calling the decompress() method, which MultiWidget subclasses must
-    implement. This method takes a single "compressed" value and returns a
-    list.
-
-    When render() does its HTML rendering, each value in the list is rendered
-    with the corresponding widget -- the first value is rendered in the first
-    widget, the second value is rendered in the second widget, etc.
-
-    Subclasses may implement format_output(), which takes the list of rendered
-    widgets and returns a string of HTML that formats them any way you'd like.
-
-    You'll probably want to use this class with MultiValueField.
-    """
     def __init__(self, widget_type, attrs=None):
         self.widget_type = widget_type
         self.widget = widget_type()
@@ -64,9 +38,13 @@ class ListWidget(Widget):
         widget = self.widget_type()
         i = 0
         ret = []
-        while (name + '_%s' % i) in data:
+        while (name + '_%s' % i) in data or (name + '_%s' % i) in files:
             value = widget.value_from_datadict(data, files, name + '_%s' % i)
-            if value not in EMPTY_VALUES:
+            # we need a different list if we handle files. Basicly Django sends
+            # back the initial values if we're not dealing with files. If we store
+            # files on the list, we need to add empty values to the clean data,
+            # so the list positions are kept.
+            if value not in EMPTY_VALUES or (value is None and len(files) > 0):
                 ret.append(value)
             i = i + 1
         return ret

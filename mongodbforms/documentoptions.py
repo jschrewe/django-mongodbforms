@@ -236,7 +236,7 @@ class DocumentMetaWrapper(MutableMapping):
         try:
             return self.__getitem__(key)
         except KeyError:
-            return default 
+            return default
     
     def get_parent_list(self):
         return []

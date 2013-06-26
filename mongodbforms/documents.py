@@ -21,7 +21,6 @@ from mongoengine.queryset import OperationError
 from mongoengine.connection import _get_db
 from gridfs import GridFS
 
-#from .fieldgenerator import MongoDefaultFormFieldGenerator
 from .documentoptions import DocumentMetaWrapper
 from .util import with_metaclass, load_field_generator
 
@@ -139,7 +138,11 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
                     file_data = list_field[i]
                 except IndexError:
                     file_data = None
-                map_field[i] = _save_iterator_file(f, uploaded_file, file_data)
+                file_obj = _save_iterator_file(f, uploaded_file, file_data)
+                try:
+                    list_field[i] = file_obj
+                except IndexError:
+                    list_field.append(file_obj)
             setattr(instance, f.name, list_field)
         else:
             field = getattr(instance, f.name)
