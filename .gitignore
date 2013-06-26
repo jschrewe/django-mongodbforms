@@ -7,5 +7,6 @@ MANIFEST
 build/*
 *egg*
 *.bak
+.settings/*
 
 
