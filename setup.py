@@ -11,7 +11,7 @@ def convert_readme():
     return open('README.txt').read()
 
 setup(name='mongodbforms',
-    version='0.1.5',
+    version='0.2',
     description="An implementation of django forms using mongoengine.",
     author='Jan Schrewe',
     author_email='jan@schafproductions.com',
