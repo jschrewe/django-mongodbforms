@@ -1,11 +1,15 @@
 import sys
 from collections import MutableMapping
+from types import MethodType
 
 from django.db.models.fields import FieldDoesNotExist
 from django.utils.text import capfirst
 from django.db.models.options import get_verbose_name
 
 from mongoengine.fields import ReferenceField
+
+def patch_document(function, instance):
+    setattr(instance, function.__name__, MethodType(function, instance))
 
 def create_verbose_name(name):
     name = get_verbose_name(name)
@@ -31,7 +35,7 @@ class DocumentMetaWrapper(MutableMapping):
     Used to store mongoengine's _meta dict to make the document admin
     as compatible as possible to django's meta class on models. 
     """
-    _pk = None
+    pk = None
     pk_name = None
     _app_label = None
     module_name = None
@@ -47,6 +51,8 @@ class DocumentMetaWrapper(MutableMapping):
     concrete_model = None
     
     def __init__(self, document):
+        super(DocumentMetaWrapper, self).__init__()
+        
         self.document = document
         # used by Django to distinguish between abstract and concrete models
         # here for now always the document
@@ -60,12 +66,54 @@ class DocumentMetaWrapper(MutableMapping):
         
         self.module_name = self.object_name.lower()
         
-        # EmbeddedDocuments don't have an id field.
-        try:
+        # add the gluey stuff to the document and it's fields to make
+        # everything play nice with Django
+        self._setup_document_fields()
+        # Setup self.pk if the document has an id_field in it's meta
+        # if it doesn't have one it's an embedded document
+        if 'id_field' in self._meta:
             self.pk_name = self._meta['id_field']
             self._init_pk()
-        except KeyError:
-            pass
+            
+    def _setup_document_fields(self):
+        for f in self.document._fields.values():
+            # Yay, more glue. Django expects fields to have a couple attributes
+            # at least in the admin, probably in more places.
+            if not hasattr(f, 'rel'):
+                # need a bit more for actual reference fields here
+                f.rel = None
+            if not hasattr(f, 'verbose_name'):
+                f.verbose_name = capfirst(create_verbose_name(f.name))
+            if not hasattr(f, 'flatchoices'):
+                flat = []
+                if f.choices is not None:
+                    for choice, value in f.choices:
+                        if isinstance(value, (list, tuple)):
+                            flat.extend(value)
+                        else:
+                            flat.append((choice,value))
+                f.flatchoices = flat
+            if isinstance(f, ReferenceField):
+                document = f.document_type
+                if not isinstance(document._meta, DocumentMetaWrapper):
+                    document._meta = DocumentMetaWrapper(document)
+                    
+    def _init_pk(self):
+        """
+        Adds a wrapper around the documents pk field. The wrapper object gets the attributes
+        django expects on the pk field, like name and attname.
+
+        The function also adds a _get_pk_val method to the document.
+        """
+        pk_field = getattr(self.document, self.pk_name)
+        self.pk = PkWrapper(pk_field)
+        self.pk.name = self.pk_name
+        self.pk.attname = self.pk_name
+
+        self.document._pk_val = pk_field
+        def _get_pk_val(self):
+            return self._pk_val
+        patch_document(_get_pk_val, self.document)
     
     @property
     def app_label(self):
@@ -97,38 +145,6 @@ class DocumentMetaWrapper(MutableMapping):
     @property
     def verbose_name_plural(self):
         return "%ss" % self.verbose_name
-    
-    @property    
-    def pk(self):
-        if not hasattr(self._pk, 'attname'):
-            self._init_pk()
-        return self._pk
-        
-    def _init_pk(self):
-        """
-        Adds a wrapper around the documents pk field. The wrapper object gets the attributes
-        django expects on the pk field, like name and attname.
-        
-        The function also adds a _get_pk_val method to the document.
-        """
-        if self.id_field is None:
-            return
-        
-        try:
-            pk_field = getattr(self.document, self.id_field)
-            self._pk = PkWrapper(pk_field)
-            self._pk.name = self.id_field
-            self._pk.attname = self.id_field
-            self._pk_name = self.id_field
-                
-            self.document._pk_val = getattr(self.document, self.pk_name)
-            # avoid circular import
-            from mongodbforms.util import patch_document
-            def _get_pk_val(self):
-                return self._pk_val
-            patch_document(_get_pk_val, self.document)
-        except AttributeError:
-            return      
                 
     def get_add_permission(self):
         return 'add_%s' % self.object_name.lower()
@@ -151,50 +167,16 @@ class DocumentMetaWrapper(MutableMapping):
         'direct' is False, 'field_object' is the corresponding RelatedObject
         for this field (since the field doesn't have an instance associated
         with it).
-
-        Uses a cache internally, so after the first access, this is very fast.
         """
-        try:
-            try:
-                return self._field_cache[name]
-            except TypeError:
-                self._init_field_cache()
-                return self._field_cache[name]
-        except KeyError:
+        if name in self.document._fields:
+            field = self.document._fields[name]
+            if isinstance(field, ReferenceField):
+                return (field, field.document_type, False, False)
+            else:
+                return (field, None, True, False)
+        else:
             raise FieldDoesNotExist('%s has no field named %r'
                     % (self.object_name, name))
-            
-        
-    def _init_field_cache(self):
-        if self._field_cache is None:
-            self._field_cache = {}
-        
-        for f in self.document._fields.values():
-            # Yay, more glue. Django expects fields to have a rel attribute
-            # at least in the admin, probably in more places. So we add them here
-            # and hope that this is the common path to access the fields.
-            if not hasattr(f, 'rel'):
-                f.rel = None
-            if getattr(f, 'verbose_name', None) is None:
-                f.verbose_name = capfirst(create_verbose_name(f.name))
-            if not hasattr(f, 'flatchoices'):
-                flat = []
-                if f.choices is not None:
-                    for choice, value in f.choices:
-                        if isinstance(value, (list, tuple)):
-                            flat.extend(value)
-                        else:
-                            flat.append((choice,value))
-                f.flatchoices = flat
-            if isinstance(f, ReferenceField):
-                document = f.document_type
-                document._meta = DocumentMetaWrapper(document)
-                document._admin_opts = document._meta
-                self._field_cache[document._meta.module_name] = (f, document, False, False)
-            else:
-                self._field_cache[f.name] = (f, None, True, False)
-                
-        return self._field_cache
          
     def get_field(self, name, many_to_many=True):
         """

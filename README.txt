@@ -7,7 +7,8 @@ documents.
 Requirements
 ------------
 
--  `mongoengine <http://mongoengine.org/>`_
+-  Django >= 1.3
+-  `mongoengine <http://mongoengine.org/>`_ >= 0.6
 
 Usage
 -----
@@ -20,41 +21,46 @@ Normal documents
 To use mongodbforms with normal documents replace djangos forms with
 mongodbform forms.
 
-::
+\`\`\`python from mongodbforms import DocumentForm
 
-    from mongodbforms import DocumentForm
-
-    class BlogForm(DocumentForm)
-        ...
+class BlogForm(DocumentForm) ... \`\`\`
 
 Embedded documents
 ~~~~~~~~~~~~~~~~~~
 
 For embedded documents use ``EmbeddedDocumentForm``. The Meta-object of
 the form has to be provided with an embedded field name. The embedded
-object is appended to this. The form constructor takes an additional
-argument: The document the embedded document gets added to.
+object is appended to this. The form constructor takes a couple of
+additional arguments: The document the embedded document gets added to
+and an optional position argument.
 
-If the form is saved the new embedded object is automatically added to
-the provided parent document. If the embedded field is a list field the
-embedded document is appended to the list, if it is a plain embedded
-field the current object is overwritten. Note that the parent document
-is not saved.
+If no position is provided the form adds a new embedded document to the
+list if the form is saved. To edit an embedded document stored in a list
+field the position argument is required. If you provide a position and
+no instance to the form the instance is automatically loaded using the
+position argument.
+
+If the embedded field is a plain embedded field the current object is
+simply overwritten.
+
+\`\`\`\`python # forms.py from mongodbforms import EmbeddedDocumentForm
+
+class MessageForm(EmbeddedDocumentForm): class Meta: document = Message
+embedded\_field\_name = 'messages'
 
 ::
 
-    # forms.py
-    from mongodbforms import EmbeddedDocumentForm
+        fields = ['subject', 'sender', 'message',]
 
-    class MessageForm(EmbeddedDocumentForm):
-        class Meta:
-            document = Message
-            embedded_field_name = 'messages'
+views.py
+========
 
-            fields = ['subject', 'sender', 'message',]
+create a new embedded object
+============================
 
-    # views.py
-    form = MessageForm(parent_document=some_document, ...)
+form = MessageForm(parent\_document=some\_document, ...) # edit the 4th
+embedded object form = MessageForm(parent\_document=some\_document,
+position=3, ...) \`\`\`
 
 Documentation
 -------------
@@ -71,26 +77,39 @@ Form field generation
 ~~~~~~~~~~~~~~~~~~~~~
 
 Because the fields on mongoengine documents have no notion of form
-fields every mongodbform uses a generator class to generate the form
-field for a db field, which is not explicitly set.
+fields mongodbform uses a generator class to generate the form field for
+a db field, which is not explicitly set.
 
-If you want to use your own generator class you can use the
-``formfield_generator`` option on the form's Meta class.
+To use your own field generator you can either set a generator for your
+whole project using ``MONGODBFORMS_FIELDGENERATOR`` in settings.py or
+you can use the ``formfield_generator`` option on the form's Meta class.
 
-::
+The default generator is defined in ``mongodbforms/fieldgenerator.py``
+and should make it easy to override form fields and widgets. If you set
+a generator on the document form you can also pass two dicts
+``field_overrides`` and ``widget_overrides`` to ``__init__``. For a list
+of valid keys have a look at ``MongoFormFieldGenerator``.
 
-    # generator.py
-    from mongodbforms.fieldgenerator import MongoFormFieldGenerator
+\`\`\`\`python # settings.py
 
-    class MyFieldGenerator(MongoFormFieldGenerator):
-        ...
+set the fieldgeneretor for the whole application
+================================================
 
-    # forms.py
-    from mongodbforms import DocumentForm
+MONGODBFORMS\_FIELDGENERATOR = 'myproject.fieldgenerator.GeneratorClass'
 
-    from generator import MyFieldGenerator
+generator.py
+============
 
-    class MessageForm(DocumentForm):
-        class Meta:
-            formfield_generator = MyFieldGenerator
+from mongodbforms.fieldgenerator import MongoFormFieldGenerator
 
+class MyFieldGenerator(MongoFormFieldGenerator): ...
+
+forms.py
+========
+
+from mongodbforms import DocumentForm
+
+from generator import MyFieldGenerator
+
+class MessageForm(DocumentForm): class Meta: formfield\_generator =
+MyFieldGenerator \`\`\`
