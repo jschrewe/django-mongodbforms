@@ -29,6 +29,55 @@ class PkWrapper(object):
         if attr != 'obj' and hasattr(self.obj, attr):
             setattr(self.obj, attr, value)
         super(PkWrapper, self).__setattr__(attr, value)
+        
+class Relation(object):
+    def __init__(self, field, to, field_name, related_name=None, limit_choices_to=None,
+                 parent_link=False, on_delete=None):
+                 
+        
+        self.field_name = field_name
+        self.field = field
+        self.to = to
+        self.related_name = related_name
+        self.limit_choices_to = {} if limit_choices_to is None else limit_choices_to
+        self.multiple = True
+        self.parent_link = parent_link
+        self.on_delete = on_delete
+
+    def is_hidden(self):
+        "Should the related object be hidden?"
+        return self.related_name and self.related_name[-1] == '+'
+
+    def get_joining_columns(self):
+        return self.field.get_reverse_joining_columns()
+
+    def get_extra_restriction(self, where_class, alias, related_alias):
+        return self.field.get_extra_restriction(where_class, related_alias, alias)
+
+    def set_field_name(self):
+        """
+        Sets the related field's name, this is not available until later stages
+        of app loading, so set_field_name is called from
+        set_attributes_from_rel()
+        """
+        # By default foreign object doesn't relate to any remote field (for
+        # example custom multicolumn joins currently have no remote field).
+        self.field_name = None
+
+    def get_related_field(self):
+        """
+        Returns the Field in the 'to' object to which this relationship is
+        tied.
+        """
+        data = self.to._meta.get_field_by_name(self.field_name)
+        if not data[2]:
+            raise FieldDoesNotExist("No related field named '%s'" %
+                    self.field_name)
+        return data[0]
+
+    def set_field_name(self):
+        self.field_name = self.field_name or self.to._meta.pk.name
+    
 
 class DocumentMetaWrapper(MutableMapping):
     """
@@ -93,10 +142,8 @@ class DocumentMetaWrapper(MutableMapping):
                         else:
                             flat.append((choice,value))
                 f.flatchoices = flat
-            if isinstance(f, ReferenceField):
-                document = f.document_type
-                if not isinstance(document._meta, DocumentMetaWrapper):
-                    document._meta = DocumentMetaWrapper(document)
+            if isinstance(f, ReferenceField) and not isinstance(f.document_type._meta, DocumentMetaWrapper):
+                f.document_type._meta = DocumentMetaWrapper(f.document_type)
                     
     def _init_pk(self):
         """
@@ -131,10 +178,7 @@ class DocumentMetaWrapper(MutableMapping):
         then generates a verbose name from from the object name.
         """
         if self._verbose_name is None:
-            try:
-                self._verbose_name = capfirst(create_verbose_name(self._meta['verbose_name']))
-            except KeyError:
-                self._verbose_name = capfirst(create_verbose_name(self.object_name))
+            self._verbose_name = capfirst(create_verbose_name(self._meta.get('verbose_name', self.object_name)))
                 
         return self._verbose_name
     
