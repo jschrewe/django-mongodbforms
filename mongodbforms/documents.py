@@ -945,7 +945,7 @@ class EmbeddedDocumentFormSet(BaseDocumentFormSet):
         # add position argument to the form. Otherwise we will spend
         # a huge amount of time iterating over the list field on form __init__
         emb_list = getattr(self.parent_document, self.form._meta.embedded_field)
-        if len(emb_list) < i:
+        if emb_list is not None and len(emb_list) < i:
             defaults['position'] = i
         defaults.update(kwargs)
         
