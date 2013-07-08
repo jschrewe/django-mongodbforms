@@ -235,22 +235,17 @@ def fields_for_document(document, fields=None, exclude=None, widgets=None, \
     in the ``fields`` argument.
     """
     field_list = []
-    ignored = []
     if isinstance(field_generator, type):
         field_generator = field_generator()
+        
+    if formfield_callback and not isinstance(formfield_callback, Callable):
+        raise TypeError('formfield_callback must be a function or callable')
     
-    # This is actually a bad way to sort the fields, but the fields keep the order
-    # they were defined on he document (at least with cPython) and I can't see 
-    # any other way for now. Oh, yeah, it works because we sort on the memory address
-    # and hope that the earlier fields have a lower address.
-    sorted_fields = sorted(list(document._fields.values()), key=lambda field: field.__hash__())
-    
-    for f in sorted_fields:
+    for name in document._fields_ordered:
+        f = document._fields.get(name)
         if isinstance(f, ObjectIdField):
             continue
-        if isinstance(f, ListField) and not (hasattr(f.field,'choices') or isinstance(f.field, ReferenceField)):
-            continue
-        if fields is not None and not f.name in fields:
+        if fields and not f.name in fields:
             continue
         if exclude and f.name in exclude:
             continue
@@ -259,25 +254,15 @@ def fields_for_document(document, fields=None, exclude=None, widgets=None, \
         else:
             kwargs = {}
 
-        if formfield_callback is None:
-            formfield = field_generator.generate(f, **kwargs)
-        elif not isinstance(formfield_callback, Callable):
-            raise TypeError('formfield_callback must be a function or callable')
-        else:
+        if formfield_callback:
             formfield = formfield_callback(f, **kwargs)
+        else:
+            formfield = field_generator.generate(f, **kwargs)            
 
         if formfield:
             field_list.append((f.name, formfield))
-        else:
-            ignored.append(f.name)
 
-    field_dict = SortedDict(field_list)
-    if fields:
-        field_dict = SortedDict(
-            [(f, field_dict.get(f)) for f in fields
-                if ((not exclude) or (exclude and f not in exclude)) and (f not in ignored)]
-        )
-    return field_dict
+    return SortedDict(field_list)
 
 
 
