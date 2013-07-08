@@ -1,6 +1,7 @@
 import os
 import itertools
 from collections import Callable
+from functools import reduce
 
 from django.utils.datastructures import SortedDict
 from django.forms.forms import BaseForm, get_declared_fields, NON_FIELD_ERRORS, pretty_name
