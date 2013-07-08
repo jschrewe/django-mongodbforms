@@ -17,7 +17,7 @@ try:
     from mongoengine.base import ValidationError
 except ImportError:
     from mongoengine.errors import ValidationError
-from mongoengine.queryset import OperationError
+from mongoengine.queryset import OperationError, Q
 from mongoengine.connection import _get_db
 from gridfs import GridFS
 
@@ -477,17 +477,31 @@ class BaseDocumentForm(BaseForm):
         for f in self.instance._fields.values():
             if f.unique and f.name not in exclude:
                 filter_kwargs = {
-                    f.name: getattr(self.instance, f.name)
+                    f.name: getattr(self.instance, f.name),
+                    'q_obj': None,
                 }
                 if f.unique_with:
                     for u_with in f.unique_with:
-                        filter_kwargs[u_with] = getattr(self.instance, u_with)
-                qs = self.instance.__class__.objects().filter(**filter_kwargs)
+                        u_with_field = self.instance._fields[u_with]
+                        u_with_attr = getattr(self.instance, u_with)
+                        # handling ListField(ReferenceField()) sucks big time
+                        # What we need to do is construct a Q object that
+                        # queries for the pk of every list entry and only accepts
+                        # lists with the same length as the list we have
+                        if isinstance(u_with_field, ListField) and \
+                                isinstance(u_with_field.field, ReferenceField):
+                            q = reduce(lambda x, y: x & y, [Q(**{u_with: k.pk}) for k in u_with_attr])
+                            size_key = '%s__size' % u_with
+                            q = q & Q(**{size_key: len(u_with_attr)})
+                            filter_kwargs['q_obj'] = q & filter_kwargs['q_obj']
+                        else:
+                            filter_kwargs[u_with] = u_with_attr
+                qs = self.instance.__class__.objects.no_dereference().filter(**filter_kwargs)
                 # Exclude the current object from the query if we are editing an
                 # instance (as opposed to creating a new one)
                 if self.instance.pk is not None:
                     qs = qs.filter(pk__ne=self.instance.pk)
-                if len(qs) > 0:
+                if qs.count() > 0:
                     message = _("%(model_name)s with this %(field_label)s already exists.") %  {
                                 'model_name': str(capfirst(self.instance._meta.verbose_name)),
                                 'field_label': str(pretty_name(f.name))

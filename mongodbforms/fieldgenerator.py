@@ -76,6 +76,7 @@ class MongoFormFieldGenerator(object):
             return
         
         field_name = field.__class__.__name__.lower()
+        # this masks errors in formfield generation. Bad way to do it!
         try:
             return getattr(self, 'generate_%s' % field_name)(field, **kwargs)
         except AttributeError:
@@ -322,7 +323,7 @@ class MongoFormFieldGenerator(object):
                 'label': self.get_field_label(field),
                 'help_text': self.get_field_help_text(field),
                 'required': field.required,
-                'queryset': field.document_type.objects,
+                'queryset': field.field.document_type.objects.clone(),
             }
         else:
             map_key = 'listfield'
