@@ -73,6 +73,16 @@ class ListWidget(Widget):
         return obj
     
 class DynamicListWidget(ListWidget):
+    def __init__(self, widget_type, attrs=None):
+        class_attr = {'class': 'dynamiclistwidget'}
+        if attrs is None:
+            attrs = class_attr
+        elif 'class' in attrs:
+            attrs['class'] = '%s %s' % (attrs['class'], class_attr['class'])
+        else:
+            attrs.update(class_attr)
+        super(DynamicListWidget, self).__init__(widget_type, attrs)
+    
     def format_output(self, rendered_widgets):
         """
         Given a list of rendered widgets (as strings), returns a Unicode string
@@ -81,10 +91,11 @@ class DynamicListWidget(ListWidget):
         This hook allows you to format the HTML design of the widgets, if
         needed.
         """
+        #print(rendered_widgets)
         output = []
         for widget in rendered_widgets:
             output.append("<p>%s</p>" % widget)
-        output.append('<script type="text/javascript">mdbf.onDomReady(mdbf.init("field-%s"))</script>' % self._name)
+        #output.append('<script type="text/javascript">mdbf.onDomReady(mdbf.init("field-%s"))</script>' % self._name)
         return ''.join(output)
     
     def _get_media(self):

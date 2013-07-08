@@ -172,12 +172,16 @@ class ListField(forms.Field):
     widget = ListWidget
 
     def __init__(self, field_type, *args, **kwargs):
+        if 'widget' in kwargs:
+            self.widget = kwargs.pop('widget')
+        
         self.field_type = field_type
-        widget = self.field_type().widget
-        if isinstance(widget, type):
-            w_type = widget
+        
+        contained_widget = self.field_type().widget
+        if isinstance(contained_widget, type):
+            w_type = contained_widget
         else:
-            w_type = widget.__class__
+            w_type = contained_widget.__class__
         self.widget = self.widget(w_type)
         
         super(ListField, self).__init__(*args, **kwargs)
@@ -237,12 +241,15 @@ class MapField(forms.Field):
 
     def __init__(self, field_type, max_key_length=None, min_key_length=None, 
                  key_validators=[], field_kwargs={}, *args, **kwargs):
+                 
+        if 'widget' in kwargs:
+            self.widget = kwargs.pop('widget')
         
-        widget = field_type().widget
-        if isinstance(widget, type):
-            w_type = widget
+        contained_widget = field_type().widget
+        if isinstance(contained_widget, type):
+            w_type = contained_widget
         else:
-            w_type = widget.__class__
+            w_type = contained_widget.__class__
         self.widget = self.widget(w_type)
         
         super(MapField, self).__init__(*args, **kwargs)

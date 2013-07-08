@@ -20,6 +20,7 @@ from django.utils.text import capfirst
 from mongoengine import ReferenceField as MongoReferenceField, EmbeddedDocumentField as MongoEmbeddedDocumentField
 
 from .fields import MongoCharField, ReferenceField, DocumentMultipleChoiceField, ListField, MapField
+from .widgets import DynamicListWidget
 
 BLANK_CHOICE_DASH = [("", "---------")]
 
@@ -405,3 +406,10 @@ class MongoDefaultFormFieldGenerator(MongoFormFieldGenerator):
 
             defaults.update(kwargs)
             return forms.CharField(**defaults)
+            
+class DynamicFormFieldGenerator(MongoDefaultFormFieldGenerator):
+    widget_override_map = {
+        'stringfield_long': forms.Textarea,
+        'listfield': DynamicListWidget,
+    }
+    
