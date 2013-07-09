@@ -4,6 +4,7 @@
 Based on django mongotools (https://github.com/wpjunior/django-mongotools) by
 Wilson Júnior (wilsonpjunior@gmail.com).
 """
+import collections
 
 from django import forms
 from django.core.validators import EMPTY_VALUES
@@ -17,7 +18,8 @@ except ImportError:
 from django.db.models.options import get_verbose_name
 from django.utils.text import capfirst
 
-from mongoengine import ReferenceField as MongoReferenceField, EmbeddedDocumentField as MongoEmbeddedDocumentField
+from mongoengine import ReferenceField as MongoReferenceField, EmbeddedDocumentField as MongoEmbeddedDocumentField, \
+                ListField as MongoListField, MapField as MongoMapField
 
 from .fields import MongoCharField, ReferenceField, DocumentMultipleChoiceField, ListField, MapField
 from .widgets import DynamicListWidget
@@ -123,6 +125,18 @@ class MongoFormFieldGenerator(object):
     def get_field_help_text(self, field):
         if field.help_text:
             return field.help_text.capitalize()
+        else:
+            return ''
+            
+    def get_field_default(self, field):
+        if isinstance(field, (MongoListField, MongoMapField)):
+            f = field.field
+        else:
+            f = field
+        if isinstance(f.default, collections.Callable):
+            return f.default()
+        else:
+            return f.default
         
     def _check_widget(self, map_key):
         if map_key in self.widget_override_map:
@@ -135,7 +149,7 @@ class MongoFormFieldGenerator(object):
             map_key = 'stringfield_choices'
             defaults = {
                 'label': self.get_field_label(field),
-                'initial': field.default,
+                'initial': self.get_field_default(field),
                 'required': field.required,
                 'help_text': self.get_field_help_text(field),
                 'choices': self.get_field_choices(field),
@@ -145,7 +159,7 @@ class MongoFormFieldGenerator(object):
             map_key = 'stringfield_long'
             defaults = {
                 'label': self.get_field_label(field),
-                'initial': field.default,
+                'initial': self.get_field_default(field),
                 'required': field.required,
                 'help_text': self.get_field_help_text(field)
             }
@@ -153,7 +167,7 @@ class MongoFormFieldGenerator(object):
             map_key = 'stringfield'
             defaults = {
                 'label': self.get_field_label(field),
-                'initial': field.default,
+                'initial': self.get_field_default(field),
                 'required': field.required,
                 'help_text': self.get_field_help_text(field),
                 'max_length': field.max_length,
@@ -172,7 +186,7 @@ class MongoFormFieldGenerator(object):
             'required': field.required,
             'min_length': field.min_length,
             'max_length': field.max_length,
-            'initial': field.default,
+            'initial': self.get_field_default(field),
             'label': self.get_field_label(field),
             'help_text': self.get_field_help_text(field)
         }
@@ -187,7 +201,7 @@ class MongoFormFieldGenerator(object):
             'required': field.required,
             'min_length': field.min_length,
             'max_length': field.max_length,
-            'initial': field.default,
+            'initial': self.get_field_default(field),
             'label': self.get_field_label(field),
             'help_text':  self.get_field_help_text(field)
         }
@@ -203,7 +217,7 @@ class MongoFormFieldGenerator(object):
                 'coerce': self.integer_field,
                 'empty_value': None,
                 'required': field.required,
-                'initial': field.default,
+                'initial': self.get_field_default(field),
                 'label': self.get_field_label(field),
                 'choices': self.get_field_choices(field),
                 'help_text': self.get_field_help_text(field)
@@ -214,7 +228,7 @@ class MongoFormFieldGenerator(object):
                 'required': field.required,
                 'min_value': field.min_value,
                 'max_value': field.max_value,
-                'initial': field.default,
+                'initial': self.get_field_default(field),
                 'label': self.get_field_label(field),
                 'help_text': self.get_field_help_text(field)
             }
@@ -227,7 +241,7 @@ class MongoFormFieldGenerator(object):
         map_key = 'floatfield'
         defaults = {
             'label': self.get_field_label(field),
-            'initial': field.default,
+            'initial': self.get_field_default(field),
             'required': field.required,
             'min_value': field.min_value,
             'max_value': field.max_value,
@@ -242,7 +256,7 @@ class MongoFormFieldGenerator(object):
         map_key = 'decimalfield'
         defaults = {
             'label': self.get_field_label(field),
-            'initial': field.default,
+            'initial': self.get_field_default(field),
             'required': field.required,
             'min_value': field.min_value,
             'max_value': field.max_value,
@@ -260,7 +274,7 @@ class MongoFormFieldGenerator(object):
                 'coerce': self.boolean_field,
                 'empty_value': None,
                 'required': field.required,
-                'initial': field.default,
+                'initial': self.get_field_default(field),
                 'label': self.get_field_label(field),
                 'choices': self.get_field_choices(field),
                 'help_text': self.get_field_help_text(field)
@@ -269,7 +283,7 @@ class MongoFormFieldGenerator(object):
             map_key = 'booleanfield'
             defaults = {
                 'required': field.required,
-                'initial': field.default,
+                'initial': self.get_field_default(field),
                 'label': self.get_field_label(field),
                 'help_text': self.get_field_help_text(field)
             }
@@ -282,7 +296,7 @@ class MongoFormFieldGenerator(object):
         map_key = 'datetimefield'
         defaults = {
             'required': field.required,
-            'initial': field.default,
+            'initial': self.get_field_default(field),
             'label': self.get_field_label(field),
         }
         form_class = self.form_field_map.get(map_key)
@@ -358,7 +372,7 @@ class MongoFormFieldGenerator(object):
         defaults = {
             'required':field.required,
             'label':self.get_field_label(field),
-            'initial': field.default,
+            'initial': self.get_field_default(field),
             'help_text': self.get_field_help_text(field)
         }
         form_class = self.form_field_map.get(map_key)
@@ -371,7 +385,7 @@ class MongoFormFieldGenerator(object):
         defaults = {
             'required':field.required,
             'label':self.get_field_label(field),
-            'initial': field.default,
+            'initial': self.get_field_default(field),
             'help_text': self.get_field_help_text(field)
         }
         form_class = self.form_field_map.get(map_key)

@@ -153,7 +153,7 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
             
             try:
                 upload.file.seek(0)
-                # delete first to not get the names right
+                # delete first to get the names right
                 if field.grid_id:
                     field.delete()
                 filename = _get_unique_filename(upload.name, f.db_alias, f.collection_name)
