@@ -218,8 +218,7 @@ def document_to_dict(instance, fields=None, exclude=None):
             continue
         if exclude and f.name in exclude:
             continue
-        else:
-            data[f.name] = getattr(instance, f.name)
+        data[f.name] = getattr(instance, f.name, '')
     return data
 
 def fields_for_document(document, fields=None, exclude=None, widgets=None, \
@@ -377,23 +376,22 @@ class BaseDocumentForm(BaseForm):
         # Build up a list of fields that should be excluded from model field
         # validation and unique checks.
         for f in self.instance._fields.values():
-            field = f.name
             # Exclude fields that aren't on the form. The developer may be
             # adding these values to the model after form validation.
-            if field not in self.fields:
+            if f.name not in self.fields:
                 exclude.append(f.name)
 
             # Don't perform model validation on fields that were defined
             # manually on the form and excluded via the ModelForm's Meta
             # class. See #12901.
-            elif self._meta.fields and field not in self._meta.fields:
+            elif self._meta.fields and f.name not in self._meta.fields:
                 exclude.append(f.name)
-            elif self._meta.exclude and field in self._meta.exclude:
+            elif self._meta.exclude and f.name in self._meta.exclude:
                 exclude.append(f.name)
 
             # Exclude fields that failed form validation. There's no need for
             # the model fields to validate them as well.
-            elif field in list(self._errors.keys()):
+            elif f.name in list(self._errors.keys()):
                 exclude.append(f.name)
 
             # Exclude empty fields that are not required by the form, if the
@@ -403,7 +401,7 @@ class BaseDocumentForm(BaseForm):
             # value may be included in a unique check, so cannot be excluded
             # from validation.
             else:
-                field_value = self.cleaned_data.get(field, None)
+                field_value = self.cleaned_data.get(f.name, None)
                 if not f.required and field_value in EMPTY_VALUES:
                     exclude.append(f.name)
         return exclude
