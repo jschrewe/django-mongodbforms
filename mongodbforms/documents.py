@@ -19,7 +19,7 @@ try:
 except ImportError:
     from mongoengine.errors import ValidationError
 from mongoengine.queryset import OperationError, Q
-from mongoengine.connection import _get_db
+from mongoengine.connection import get_db, DEFAULT_CONNECTION_NAME
 from gridfs import GridFS
 
 from .documentoptions import DocumentMetaWrapper
@@ -27,8 +27,8 @@ from .util import with_metaclass, load_field_generator
 
 _fieldgenerator = load_field_generator()
 
-def _get_unique_filename(name):
-    fs = GridFS(_get_db())
+def _get_unique_filename(name, db_alias=DEFAULT_CONNECTION_NAME, collection_name='fs'):
+    fs = GridFS(get_db(db_alias), collection_name)
     file_root, file_ext = os.path.splitext(name)
     count = itertools.count(1)
     while fs.exists(filename=name):
@@ -79,7 +79,7 @@ def _save_iterator_file(field, uploaded_file, file_data=None):
         file_data.delete()
         
     uploaded_file.seek(0)
-    filename = _get_unique_filename(uploaded_file.name)
+    filename = _get_unique_filename(uploaded_file.name, field.field.db_alias, field.field.collection_name)
     file_data.put(uploaded_file, content_type=uploaded_file.content_type, filename=filename)
     file_data.close()
     
@@ -153,8 +153,11 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
             
             try:
                 upload.file.seek(0)
-                filename = _get_unique_filename(upload.name)
-                field.replace(upload, content_type=upload.content_type, filename=filename)
+                # delete first to not get the names right
+                if field.grid_id:
+                    field.delete()
+                filename = _get_unique_filename(upload.name, f.db_alias, f.collection_name)
+                field.put(upload, content_type=upload.content_type, filename=filename)
                 setattr(instance, f.name, field)
             except AttributeError:
                 # file was already uploaded and not changed during edit.
