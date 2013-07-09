@@ -71,29 +71,28 @@ class MongoFormFieldGenerator(object):
         field-classname) and raises a NotImplementedError of no generator
         can be found.
         """
-        # do not handle embedded documents here. They're more or less special
+        # do not handle embedded documents here. They are more or less special
         # and require some form of inline formset or something more complex
         # to handle then a simple field
         if isinstance(field, MongoEmbeddedDocumentField):
             return
         
-        field_name = field.__class__.__name__.lower()
-        # this masks errors in formfield generation. Bad way to do it!
-        try:
-            return getattr(self, 'generate_%s' % field_name)(field, **kwargs)
-        except AttributeError:
-            pass
+        attr_name = 'generate_%s' % field.__class__.__name__.lower()
+        if hasattr(self, attr_name):
+            return getattr(self, attr_name)(field, **kwargs)
 
         for cls in field.__class__.__bases__:
             cls_name = cls.__name__.lower()
-            try:
-                return getattr(self, 'generate_%s' % cls_name)(field, **kwargs)
-            except AttributeError:
-                if cls_name in self.form_field_map:
-                    return getattr(self, self.generator_map.get(cls_name))(field, **kwargs)
+            
+            attr_name = 'generate_%s' % cls_name
+            if hasattr(self, attr_name):
+                return getattr(self, attr_name)(field, **kwargs)
+
+            if cls_name in self.form_field_map:
+                return getattr(self, self.generator_map.get(cls_name))(field, **kwargs)
                 
-                raise NotImplementedError('%s is not supported by MongoForm' % \
-                                field.__class__.__name__)
+        raise NotImplementedError('%s is not supported by MongoForm' % \
+                            field.__class__.__name__)
 
     def get_field_choices(self, field, include_blank=True,
                           blank_choice=BLANK_CHOICE_DASH):
