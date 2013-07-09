@@ -67,7 +67,6 @@ def _save_iterator_file(field, uploaded_file, file_data=None):
         file_data = field.field.proxy_class(db_alias=field.field.db_alias,
                             collection_name=field.field.collection_name)
     
-    # overwrite an existing file
     if file_data.instance is None:
         file_data.instance = fake_document
         overwrote_instance = True
@@ -179,7 +178,9 @@ def save_instance(form, instance, fields=None, fail_message='saved',
     If construct=False, assume ``instance`` has already been constructed and
     just needs to be saved.
     """
-    instance = construct_instance(form, instance, fields, exclude)
+    if construct:
+        instance = construct_instance(form, instance, fields, exclude)
+        
     if form.errors:
         raise ValueError("The %s could not be %s because the data didn't"
                          " validate." % (instance.__class__.__name__, fail_message))
