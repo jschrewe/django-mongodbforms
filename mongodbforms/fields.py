@@ -4,6 +4,7 @@
 Based on django mongotools (https://github.com/wpjunior/django-mongotools) by
 Wilson Júnior (wilsonpjunior@gmail.com).
 """
+import copy
 
 from django import forms
 from django.core.validators import EMPTY_VALUES, MinLengthValidator, MaxLengthValidator
@@ -68,12 +69,11 @@ class ReferenceField(forms.ChoiceField):
         self.empty_label = empty_label
 
     def _get_queryset(self):
-        return self._queryset
+        return self._queryset.clone()
     
     def _set_queryset(self, queryset):
         self._queryset = queryset
         self.widget.choices = self.choices
-
     queryset = property(_get_queryset, _set_queryset)
 
     def prepare_value(self, value):
@@ -84,7 +84,6 @@ class ReferenceField(forms.ChoiceField):
 
     def _get_choices(self):
         return MongoChoiceIterator(self)
-
     choices = property(_get_choices, forms.ChoiceField._set_choices)
 
     def label_from_instance(self, obj):
@@ -97,32 +96,23 @@ class ReferenceField(forms.ChoiceField):
 
     def clean(self, value):
         # Check for empty values. 
-        if value in EMPTY_VALUES:
-            # Raise exception if it's empty and required.
-            if self.required:
-                raise forms.ValidationError(self.error_messages['required'])
-            # If it's not required just ignore it.
-            else:
-                return None
+        if value in EMPTY_VALUES and self-required:
+            raise forms.ValidationError(self.error_messages['required'])
+        elif value in EMPTY_VALUES and not self-required:
+            return None
 
+        oid = super(ReferenceField, self).clean(value)
+        
         try:
-            oid = ObjectId(value)
-            oid = super(ReferenceField, self).clean(oid)
-
-            queryset = self.queryset.clone()
-            obj = queryset.get(id=oid)
+            obj = self.queryset.get(pk=oid)
         except (TypeError, InvalidId, self.queryset._document.DoesNotExist):
             raise forms.ValidationError(self.error_messages['invalid_choice'] % {'value':value})
         return obj
     
-    # Fix for Django 1.4
-    # TODO: Test with older django versions
-    # from django-mongotools by wpjunior
-    # https://github.com/wpjunior/django-mongotools/
     def __deepcopy__(self, memo):
         result = super(forms.ChoiceField, self).__deepcopy__(memo)
-        result.queryset = result.queryset
-        result.empty_label = result.empty_label
+        result.queryset = self.queryset # self.queryset calls clone()
+        result.empty_label = copy.deepcopy(self.empty_label)
         return result
 
 class DocumentMultipleChoiceField(ReferenceField):
@@ -147,10 +137,12 @@ class DocumentMultipleChoiceField(ReferenceField):
         if not isinstance(value, (list, tuple)):
             raise forms.ValidationError(self.error_messages['list'])
         
-        key = 'pk'
-        qs = self.queryset.clone()
-        qs = qs.filter(**{'%s__in' % key: value})
-        pks = set([force_unicode(getattr(o, key)) for o in qs])
+        qs = self.queryset
+        try:
+            qs = qs.filter(pk__in=value)
+        except ValidationError:
+            raise forms.ValidationError(self.error_messages['invalid_pk_value'] % str(value))
+        pks = set([force_unicode(getattr(o, 'pk')) for o in qs])
         for val in value:
             if force_unicode(val) not in pks:
                 raise forms.ValidationError(self.error_messages['invalid_choice'] % val)
