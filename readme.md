@@ -9,7 +9,7 @@ This is an implementation of django's model forms for mongoengine documents.
 
 ## Supported field types
 
-Mongodbforms supports all the fields that have a simple representation in Django's formfields (IntField, TextField, etc). In addition it also supports `ListField`s and `MapField`s.
+Mongodbforms supports all the fields that have a simple representation in Django's formfields (IntField, TextField, etc). In addition it also supports `ListFields` and `MapFields`.
 
 ### File fields
 
