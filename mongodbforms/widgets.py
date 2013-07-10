@@ -155,12 +155,16 @@ class MapWidget(Widget):
         value.append(('', ''))
         for i, (key, widget_value) in enumerate(value):
             if id_:
-                final_attrs = dict(final_attrs, id='%s_%s' % (id_, i))
                 fieldset_attr = dict(final_attrs, id='fieldset_%s_%s' % (id_, i))
-            
             group = []
             group.append(mark_safe('<fieldset %s>' % flatatt(fieldset_attr)))
+            
+            if id_:
+                final_attrs = dict(final_attrs, id='%s_key_%s' % (id_, i))
             group.append(self.key_widget.render(name + '_key_%s' % i, key, final_attrs))
+            
+            if id_:
+                final_attrs = dict(final_attrs, id='%s_value_%s' % (id_, i))
             group.append(self.data_widget.render(name + '_value_%s' % i, widget_value, final_attrs))
             group.append(mark_safe('</fieldset>'))
             

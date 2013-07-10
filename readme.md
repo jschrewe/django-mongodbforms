@@ -7,6 +7,20 @@ This is an implementation of django's model forms for mongoengine documents.
   * Django >= 1.3
   * [mongoengine](http://mongoengine.org/) >= 0.6
 
+## Supported field types
+
+Mongodbforms supports all the fields that have a simple representation in Django's formfields (IntField, TextField, etc). In addition it also supports `ListField`s and `MapField`s.
+
+### File fields
+
+Mongodbforms handles file uploads just like the normal Django forms. Uploaded files are stored in GridFS using the mongoengine fields. Because GridFS has no directories and stores files in a flat space each uploaded file gets a unique filename with the form &lt;filename&gt;\_&lt;unique\_number&gt;.&lt;extension&gt;
+
+### Container fields
+
+For container fields like `ListField`s and `MapField`s a very simple widget is used. The widget renders the container content in the appropriate field plus one empty field. This is mainly done to not introduce any Javascript dependencies, the backend code will happily handle any kind of dynamic form, as long as the field ids are continuously numbered in the POST data.
+
+You can use any of the other supported fields inside list or map fields. Including `FileFields` which aren't really supported by mongoengine inside container fields.
+
 ## Usage
 
 mongodbforms supports forms for normal documents and embedded documents. 

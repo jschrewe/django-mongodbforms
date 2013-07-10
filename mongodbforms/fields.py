@@ -162,6 +162,7 @@ class ListField(forms.Field):
         'invalid': _('Enter a list of values.'),
     }
     widget = ListWidget
+    hidden_widget = forms.MultipleHiddenInput
 
     def __init__(self, field_type, *args, **kwargs):
         if 'widget' in kwargs:
