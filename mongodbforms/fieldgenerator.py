@@ -33,6 +33,7 @@ class MongoFormFieldGenerator(object):
     # but don't actually have the name.
     generator_map = {
         'sortedlistfield': 'generate_listfield',
+        'longfield': 'generate_intfield',
     }
     
     form_field_map = {
@@ -47,7 +48,7 @@ class MongoFormFieldGenerator(object):
         'decimalfield': forms.DecimalField,
         'booleanfield': forms.BooleanField,
         'booleanfield_choices': forms.TypedChoiceField,
-        'datetimefield': forms.DateTimeField,
+        'datetimefield': forms.SplitDateTimeField,
         'referencefield': ReferenceField,
         'listfield': ListField,
         'listfield_choices': forms.MultipleChoiceField,
@@ -144,33 +145,26 @@ class MongoFormFieldGenerator(object):
             return {}
 
     def generate_stringfield(self, field, **kwargs):
+        defaults = {
+            'label': self.get_field_label(field),
+            'initial': self.get_field_default(field),
+            'required': field.required,
+            'help_text': self.get_field_help_text(field),
+            'min_length': field.min_length,
+        }
         if field.choices:
             map_key = 'stringfield_choices'
-            defaults = {
-                'label': self.get_field_label(field),
-                'initial': self.get_field_default(field),
-                'required': field.required,
-                'help_text': self.get_field_help_text(field),
+            defaults.update({
                 'choices': self.get_field_choices(field),
                 'coerce': self.string_field,
-            }
+            })
         elif field.max_length is None:
             map_key = 'stringfield_long'
-            defaults = {
-                'label': self.get_field_label(field),
-                'initial': self.get_field_default(field),
-                'required': field.required,
-                'help_text': self.get_field_help_text(field)
-            }
         else:
             map_key = 'stringfield'
-            defaults = {
-                'label': self.get_field_label(field),
-                'initial': self.get_field_default(field),
-                'required': field.required,
-                'help_text': self.get_field_help_text(field),
+            defaults.update({
                 'max_length': field.max_length,
-            }
+            })
             if field.regex:
                 defaults['regex'] = field.regex
             
@@ -210,27 +204,25 @@ class MongoFormFieldGenerator(object):
         return form_class(**defaults)
 
     def generate_intfield(self, field, **kwargs):
+        defaults = {
+            'required': field.required,
+            'initial': self.get_field_default(field),
+            'label': self.get_field_label(field),
+            'help_text': self.get_field_help_text(field)
+        }
         if field.choices:
             map_key = 'intfield_choices'
-            defaults = {
+            defaults.update({
                 'coerce': self.integer_field,
                 'empty_value': None,
-                'required': field.required,
-                'initial': self.get_field_default(field),
-                'label': self.get_field_label(field),
                 'choices': self.get_field_choices(field),
-                'help_text': self.get_field_help_text(field)
-            }
+            })
         else:
             map_key = 'intfield'
-            defaults = {
-                'required': field.required,
+            defaults.update({
                 'min_value': field.min_value,
                 'max_value': field.max_value,
-                'initial': self.get_field_default(field),
-                'label': self.get_field_label(field),
-                'help_text': self.get_field_help_text(field)
-            }
+            })
         form_class = self.form_field_map.get(map_key)
         defaults.update(self._check_widget(map_key))
         defaults.update(kwargs)
@@ -259,6 +251,7 @@ class MongoFormFieldGenerator(object):
             'required': field.required,
             'min_value': field.min_value,
             'max_value': field.max_value,
+            'decimal_places': field.precision,
             'help_text': self.get_field_help_text(field)
         }
         form_class = self.form_field_map.get(map_key)
@@ -267,25 +260,21 @@ class MongoFormFieldGenerator(object):
         return form_class(**defaults)
 
     def generate_booleanfield(self, field, **kwargs):
+        defaults = {
+            'required': field.required,
+            'initial': self.get_field_default(field),
+            'label': self.get_field_label(field),
+            'help_text': self.get_field_help_text(field)
+        }
         if field.choices:
             map_key = 'booleanfield_choices'
-            defaults = {
+            defaults.update({
                 'coerce': self.boolean_field,
                 'empty_value': None,
-                'required': field.required,
-                'initial': self.get_field_default(field),
-                'label': self.get_field_label(field),
                 'choices': self.get_field_choices(field),
-                'help_text': self.get_field_help_text(field)
-            }
+            })
         else:
             map_key = 'booleanfield'
-            defaults = {
-                'required': field.required,
-                'initial': self.get_field_default(field),
-                'label': self.get_field_label(field),
-                'help_text': self.get_field_help_text(field)
-            }
         form_class = self.form_field_map.get(map_key)
         defaults.update(self._check_widget(map_key))
         defaults.update(kwargs)
@@ -309,7 +298,7 @@ class MongoFormFieldGenerator(object):
             'label': self.get_field_label(field),
             'help_text': self.get_field_help_text(field),
             'required': field.required,
-            'queryset': field.document_type.objects,
+            'queryset': field.document_type.objects.clone(),
         }
         form_class = self.form_field_map.get(map_key)
         defaults.update(self._check_widget(map_key))
@@ -321,32 +310,28 @@ class MongoFormFieldGenerator(object):
         if isinstance(field.field, MongoEmbeddedDocumentField):
             return
         
+        defaults = {
+            'label': self.get_field_label(field),
+            'help_text': self.get_field_help_text(field),
+            'required': field.required,
+        }
         if field.field.choices:
             map_key = 'listfield_choices'
-            defaults = {
+            defaults.update({
                 'choices': field.field.choices,
-                'required': field.required,
-                'label': self.get_field_label(field),
-                'help_text': self.get_field_help_text(field),
                 'widget': forms.CheckboxSelectMultiple
-            }
+            })
         elif isinstance(field.field, MongoReferenceField):
             map_key = 'listfield_references'
-            defaults = {
-                'label': self.get_field_label(field),
-                'help_text': self.get_field_help_text(field),
-                'required': field.required,
+            defaults.update({
                 'queryset': field.field.document_type.objects.clone(),
-            }
+            })
         else:
             map_key = 'listfield'
             form_field = self.generate(field.field)
-            defaults = {
-                'label': self.get_field_label(field),
-                'help_text': self.get_field_help_text(field),
-                'required': field.required,
+            defaults.update({
                 'field_type': form_field.__class__,
-            }
+            })
         form_class = self.form_field_map.get(map_key)
         defaults.update(self._check_widget(map_key))
         defaults.update(kwargs)
