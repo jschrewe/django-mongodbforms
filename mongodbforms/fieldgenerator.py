@@ -150,7 +150,6 @@ class MongoFormFieldGenerator(object):
             'initial': self.get_field_default(field),
             'required': field.required,
             'help_text': self.get_field_help_text(field),
-            'min_length': field.min_length,
         }
         if field.choices:
             map_key = 'stringfield_choices'
@@ -160,10 +159,14 @@ class MongoFormFieldGenerator(object):
             })
         elif field.max_length is None:
             map_key = 'stringfield_long'
+            defaults.update({
+                'min_length': field.min_length,
+            })
         else:
             map_key = 'stringfield'
             defaults.update({
                 'max_length': field.max_length,
+                'min_length': field.min_length,
             })
             if field.regex:
                 defaults['regex'] = field.regex
