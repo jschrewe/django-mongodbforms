@@ -35,44 +35,20 @@ def _get_unique_filename(name, db_alias=DEFAULT_CONNECTION_NAME, collection_name
         # file_ext includes the dot.
         name = os.path.join("%s_%s%s" % (file_root, next(count), file_ext))
     return name
-
-# The awesome Mongoengine ImageGridFsProxy wants to pull a field
-# from a document to get necessary data. Trouble is that this doesn't work
-# if the ImageField is stored on List or MapField. So we pass a nice fake
-# document to the proxy to get saving the file done. Yeah it really is that ugly.
-class FakeDocument(object):
-    _fields = {}
     
-    def __init__(self, key, field):
-        super(FakeDocument, self).__init__()
-        
-        self._fields[key] = field
-    
-    # We don't care if anything gets marked on this
-    # we do update a real field later though. That should
-    # trigger the same thing on the real document.
-    def _mark_as_changed(self, key):
-        pass
-    
-def _save_iterator_file(field, uploaded_file, file_data=None):
+def _save_iterator_file(field, instance, uploaded_file, file_data=None):
     """
     Takes care of saving a file for a list field. Returns a Mongoengine
     fileproxy object or the file field.
     """
-    fake_document = FakeDocument(field.name, field.field)
-    overwrote_instance = False
-    overwrote_key = False
     # for a new file we need a new proxy object
     if file_data is None:
-        file_data = field.field.proxy_class(db_alias=field.field.db_alias,
-                            collection_name=field.field.collection_name)
+        file_data = field.field.get_proxy_obj(key=field.name, instance=instance)
     
     if file_data.instance is None:
-        file_data.instance = fake_document
-        overwrote_instance = True
+        file_data.instance = instance
     if file_data.key is None:
         file_data.key = field.name
-        overwrote_key = True
     
     if file_data.grid_id:
         file_data.delete()
@@ -81,11 +57,6 @@ def _save_iterator_file(field, uploaded_file, file_data=None):
     filename = _get_unique_filename(uploaded_file.name, field.field.db_alias, field.field.collection_name)
     file_data.put(uploaded_file, content_type=uploaded_file.content_type, filename=filename)
     file_data.close()
-    
-    if overwrote_instance:
-        file_data.instance = None
-    if overwrote_key:
-        file_data.key = None
         
     return file_data
 
@@ -126,7 +97,7 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
                 if uploaded_file is None:
                     continue
                 file_data = map_field.get(key, None)
-                map_field[key] = _save_iterator_file(f, uploaded_file, file_data)
+                map_field[key] = _save_iterator_file(f, instance, uploaded_file, file_data)
             setattr(instance, f.name, map_field)
         elif isinstance(f, ListField):
             list_field = getattr(instance, f.name)
@@ -138,7 +109,7 @@ def construct_instance(form, instance, fields=None, exclude=None, ignore=None):
                     file_data = list_field[i]
                 except IndexError:
                     file_data = None
-                file_obj = _save_iterator_file(f, uploaded_file, file_data)
+                file_obj = _save_iterator_file(f, instance, uploaded_file, file_data)
                 try:
                     list_field[i] = file_obj
                 except IndexError:
