@@ -133,10 +133,14 @@ class MongoFormFieldGenerator(object):
             f = field.field
         else:
             f = field
+        d = {}
         if isinstance(f.default, collections.Callable):
+            d['initial'] = field.default()
+            d['show_hidden_initial'] = True
             return f.default()
         else:
-            return f.default
+            d['initial'] = field.default
+        return f.default
         
     def _check_widget(self, map_key):
         if map_key in self.widget_override_map:
@@ -341,6 +345,10 @@ class MongoFormFieldGenerator(object):
         return form_class(**defaults)
         
     def generate_mapfield(self, field, **kwargs):
+        # we can't really handle embedded documents here. So we just ignore them
+        if isinstance(field.field, MongoEmbeddedDocumentField):
+            return
+            
         map_key = 'mapfield'
         form_field = self.generate(field.field)
         defaults = {
