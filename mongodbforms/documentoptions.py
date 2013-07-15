@@ -129,8 +129,8 @@ class DocumentMetaWrapper(MutableMapping):
         then generates a verbose name from from the object name.
         """
         if self._verbose_name is None:
-            self._verbose_name = capfirst(create_verbose_name(self._meta.get('verbose_name', self.object_name)))
-                
+            verbose_name = self._meta.get('verbose_name', self.object_name)
+            self._verbose_name = capfirst(create_verbose_name(verbose_name))
         return self._verbose_name
     
     @property
@@ -179,12 +179,42 @@ class DocumentMetaWrapper(MutableMapping):
         """
         return self.get_field_by_name(name)[0]
     
+    @property
+    def swapped(self):
+        """
+        Has this model been swapped out for another? If so, return the model
+        name of the replacement; otherwise, return None.
+
+        For historical reasons, model name lookups using get_model() are
+        case insensitive, so we make sure we are case insensitive here.
+        
+        NOTE: Not sure this is actually usefull for documents. So at the moment
+        it's really only here because the admin wants it. It might prove usefull
+        for someone though, so it'S more then just a dummy.
+        """
+        if self._meta.get('swappable', False):
+            model_label = '%s.%s' % (self.app_label, self.object_name.lower())
+            swapped_for = getattr(settings, self.swappable, None)
+            if swapped_for:
+                try:
+                    swapped_label, swapped_object = swapped_for.split('.')
+                except ValueError:
+                    # setting not in the format app_label.model_name
+                    # raising ImproperlyConfigured here causes problems with
+                    # test cleanup code - instead it is raised in get_user_model
+                    # or as part of validation.
+                    return swapped_for
+
+                if '%s.%s' % (swapped_label, swapped_object.lower()) not in (None, model_label):
+                    return swapped_for
+        return None
+    
     def __getattr__(self, name):
         try:
             return self._meta[name]
         except KeyError:
             raise AttributeError
-        
+                    
     def __setattr__(self, name, value):
         if not hasattr(self, name):
             self._meta[name] = value
