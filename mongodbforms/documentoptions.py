@@ -8,8 +8,12 @@ from django.db.models.options import get_verbose_name
 
 from mongoengine.fields import ReferenceField
 
-def patch_document(function, instance):
-    setattr(instance, function.__name__, MethodType(function, instance))
+def patch_document(function, instance, bound=True):
+    if bound:
+        method = MethodType(function, instance)
+    else:
+        method = function
+    setattr(instance, function.__name__, method)
 
 def create_verbose_name(name):
     name = get_verbose_name(name)
@@ -49,6 +53,7 @@ class DocumentMetaWrapper(MutableMapping):
     document = None
     _meta = None
     concrete_model = None
+    concrete_managers = []
     
     def __init__(self, document):
         super(DocumentMetaWrapper, self).__init__()
