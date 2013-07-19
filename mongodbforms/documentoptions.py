@@ -87,7 +87,7 @@ class DocumentMetaWrapper(MutableMapping):
             if not hasattr(f, 'rel'):
                 # need a bit more for actual reference fields here
                 f.rel = None
-            if not hasattr(f, 'verbose_name'):
+            if not hasattr(f, 'verbose_name') or f.verbose_name is None:
                 f.verbose_name = capfirst(create_verbose_name(f.name))
             if not hasattr(f, 'flatchoices'):
                 flat = []
