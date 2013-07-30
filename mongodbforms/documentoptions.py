@@ -98,7 +98,8 @@ class DocumentMetaWrapper(MutableMapping):
                         else:
                             flat.append((choice,value))
                 f.flatchoices = flat
-            if isinstance(f, ReferenceField) and not isinstance(f.document_type._meta, DocumentMetaWrapper):
+            if isinstance(f, ReferenceField) and not isinstance(f.document_type._meta, DocumentMetaWrapper) \
+                        and self.document != f.document_type:
                 f.document_type._meta = DocumentMetaWrapper(f.document_type)
                     
     def _init_pk(self):
