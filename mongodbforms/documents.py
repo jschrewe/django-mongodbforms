@@ -530,11 +530,13 @@ def documentform_factory(document, form=DocumentForm, fields=None, exclude=None,
 
 
 class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentForm)):
-
-    def __init__(self, parent_document, instance=None, position=None, *args, **kwargs):
+    
+    def __init__(self, parent_document, data=None, files=None, position=None, *args, **kwargs):
         if self._meta.embedded_field is not None and not \
                 self._meta.embedded_field in parent_document._fields:
             raise FieldError("Parent document must have field %s" % self._meta.embedded_field)
+        
+        instance = kwargs.get('instance', None)
         
         if isinstance(parent_document._fields.get(self._meta.embedded_field), ListField):
             # if we received a list position of the instance and no instance
@@ -549,7 +551,7 @@ class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentFor
                 emb_list = getattr(parent_document, self._meta.embedded_field)
                 position = next((i for i, obj in enumerate(emb_list) if obj == instance), None)
             
-        super(EmbeddedDocumentForm, self).__init__(instance=instance, *args, **kwargs)
+        super(EmbeddedDocumentForm, self).__init__(data=data, files=files, instance=instance, *args, **kwargs)
         self.parent_document = parent_document
         self.position = position
         
