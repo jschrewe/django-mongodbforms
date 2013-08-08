@@ -158,20 +158,14 @@ def save_instance(form, instance, fields=None, fail_message='saved',
     
     if commit and hasattr(instance, 'save'):
         # see BaseDocumentForm._post_clean for an explanation
-        #if hasattr(form, '_delete_before_save'):
-        #    data = instance._data
-        #    new_data = dict([(n, f) for n, f in data.items() if not n in form._delete_before_save])
-        #    if hasattr(instance, '_changed_fields'):
-        #        for field in form._delete_before_save:
-        #            try:
-        #                instance._changed_fields.remove(field)
-        #            except ValueError:
-        #                pass
-        #    instance._data = new_data
-        #    instance.save()
-        #    instance._data = data
-        #else:
-        instance.save()
+        if len(form._meta._dont_save) > 0:
+            data = instance._data
+            new_data = dict([(n, f) for n, f in data.items() if not n in form._meta._dont_save])
+            instance._data = new_data
+            instance.save()
+            instance._data = data
+        else:
+            instance.save()
         
     return instance
 
@@ -257,6 +251,8 @@ class ModelFormOptions(object):
         self.widgets = getattr(options, 'widgets', None)
         self.embedded_field = getattr(options, 'embedded_field_name', None)
         self.formfield_generator = getattr(options, 'formfield_generator', _fieldgenerator)
+        
+        self._dont_save = []
         
         
 class DocumentFormMetaclass(type):
@@ -391,29 +387,20 @@ class BaseDocumentForm(BaseForm):
         self.instance = construct_instance(self, self.instance, opts.fields, opts.exclude)
 
         exclude = self._get_validation_exclusions()
-        # Clean the model instance's fields.
-        #to_delete = []
         try:
             for f in self.instance._fields.values():
                 value = getattr(self.instance, f.name)
                 if f.name not in exclude:
                     f.validate(value)
-                #elif value in EMPTY_VALUES:
+                elif value in EMPTY_VALUES and \
+                    f.name not in self.instance._changed_fields:
                     # mongoengine chokes on empty strings for fields
                     # that are not required. Clean them up here, though
                     # this is maybe not the right place :-)
-                    #to_delete.append(f.name)
+                    opts._dont_save.append(f.name)
         except ValidationError as e:
             err = {f.name: [e.message]}
             self._update_errors(err)
-        
-        # Add to_delete list to instance. It is removed in save instance
-        # The reason for this is, that the field must be deleted from the 
-        # instance before the instance gets saved. The changed instance gets 
-        # cached and the removed field is then missing on subsequent edits.
-        # To avoid that it has to be added to the instance after the instance 
-        # has been saved. Kinda ugly.
-        #self._delete_before_save = to_delete 
 
         # Call the model instance's clean method.
         if hasattr(self.instance, 'clean'):
