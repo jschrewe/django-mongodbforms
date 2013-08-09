@@ -524,7 +524,7 @@ class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentFor
                 self._meta.embedded_field in parent_document._fields:
             raise FieldError("Parent document must have field %s" % self._meta.embedded_field)
         
-        instance = kwargs.get('instance', None)
+        instance = kwargs.pop('instance', None)
         
         if isinstance(parent_document._fields.get(self._meta.embedded_field), ListField):
             # if we received a list position of the instance and no instance
