@@ -383,6 +383,8 @@ class BaseDocumentForm(BaseForm):
 
     def _post_clean(self):
         opts = self._meta
+        changed_fields = getattr(self.instance, '_changed_fields', [])
+        
         # Update the model instance with self.cleaned_data.
         self.instance = construct_instance(self, self.instance, opts.fields, opts.exclude)
 
@@ -392,8 +394,7 @@ class BaseDocumentForm(BaseForm):
                 value = getattr(self.instance, f.name)
                 if f.name not in exclude:
                     f.validate(value)
-                elif value in EMPTY_VALUES and \
-                    f.name not in self.instance._changed_fields:
+                elif value in EMPTY_VALUES and f.name not in changed_fields:
                     # mongoengine chokes on empty strings for fields
                     # that are not required. Clean them up here, though
                     # this is maybe not the right place :-)
