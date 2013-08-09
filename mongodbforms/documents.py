@@ -383,10 +383,10 @@ class BaseDocumentForm(BaseForm):
 
     def _post_clean(self):
         opts = self._meta
-        changed_fields = getattr(self.instance, '_changed_fields', [])
         
         # Update the model instance with self.cleaned_data.
         self.instance = construct_instance(self, self.instance, opts.fields, opts.exclude)
+        changed_fields = getattr(self.instance, '_changed_fields', [])
 
         exclude = self._get_validation_exclusions()
         try:
