@@ -39,10 +39,13 @@ class DocumentMetaWrapper(MutableMapping):
     Used to store mongoengine's _meta dict to make the document admin
     as compatible as possible to django's meta class on models. 
     """
+    # attributes Django deprecated. Not really sure when to remove them
+    _deprecated_attrs = {'module_name': 'model_name'}
+    
     pk = None
     pk_name = None
     _app_label = None
-    module_name = None
+    model_name = None
     _verbose_name = None
     has_auto_field = False
     object_name = None
@@ -56,6 +59,9 @@ class DocumentMetaWrapper(MutableMapping):
     concrete_managers = []
     
     def __init__(self, document):
+        #if isinstance(document._meta, DocumentMetaWrapper):
+        #    return
+        
         super(DocumentMetaWrapper, self).__init__()
         
         self.document = document
@@ -69,7 +75,7 @@ class DocumentMetaWrapper(MutableMapping):
         except AttributeError:
             self.object_name = self.document.__class__.__name__
         
-        self.module_name = self.object_name.lower()
+        self.model_name = self.object_name.lower()
         
         # add the gluey stuff to the document and it's fields to make
         # everything play nice with Django
@@ -216,6 +222,9 @@ class DocumentMetaWrapper(MutableMapping):
         return None
     
     def __getattr__(self, name):
+        if name in self._deprecated_attrs:
+            return getattr(self, self._deprecated_attrs.get(name))
+            
         try:
             return self._meta[name]
         except KeyError:

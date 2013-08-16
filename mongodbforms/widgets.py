@@ -18,6 +18,7 @@ class ListWidget(Widget):
             raise TypeError("Value supplied for %s must be a list or tuple." % name) 
                 
         output = []
+        value = [] if value is None else value
         final_attrs = self.build_attrs(attrs)
         id_ = final_attrs.get('id', None)
         value.append('')
