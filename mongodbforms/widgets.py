@@ -6,9 +6,10 @@ from django.core.validators import EMPTY_VALUES
 from django.forms.util import flatatt
 
 class ListWidget(Widget):
-    def __init__(self, widget_type, attrs=None):
-        self.widget_type = widget_type
-        self.widget = widget_type()
+    def __init__(self, contained_widget, attrs=None):
+        self.contained_widget = contained_widget
+        if isinstance(contained_widget, type):
+            self.contained_widget = self.contained_widget()
         if self.is_localized:
             self.widget.is_localized = self.is_localized
         super(ListWidget, self).__init__(attrs)
@@ -25,7 +26,7 @@ class ListWidget(Widget):
         for i, widget_value in enumerate(value):
             if id_:
                 final_attrs = dict(final_attrs, id='%s_%s' % (id_, i))
-            output.append(self.widget.render(name + '_%s' % i, widget_value, final_attrs))
+            output.append(self.contained_widget.render(name + '_%s' % i, widget_value, final_attrs))
         return mark_safe(self.format_output(output))
 
     def id_for_label(self, id_):
@@ -35,7 +36,7 @@ class ListWidget(Widget):
         return id_
 
     def value_from_datadict(self, data, files, name):
-        widget = self.widget_type()
+        widget = self.contained_widget
         i = 0
         ret = []
         while (name + '_%s' % i) in data or (name + '_%s' % i) in files:
@@ -69,8 +70,8 @@ class ListWidget(Widget):
 
     def __deepcopy__(self, memo):
         obj = super(ListWidget, self).__deepcopy__(memo)
-        obj.widget = copy.deepcopy(self.widget)
-        obj.widget_type = copy.deepcopy(self.widget_type)
+        obj.contained_widget = copy.deepcopy(self.contained_widget)
+        #obj.widget_type = copy.deepcopy(self.widget_type)
         return obj
     
 class DynamicListWidget(ListWidget):
@@ -135,11 +136,12 @@ class MapWidget(Widget):
 
     You'll probably want to use this class with MultiValueField.
     """
-    def __init__(self, widget_type, attrs=None):
-        self.widget_type = widget_type
+    def __init__(self, contained_widget, attrs=None):
         self.key_widget = TextInput()
         self.key_widget.is_localized = self.is_localized
-        self.data_widget = self.widget_type()
+        if isinstance(contained_widget, type):
+            contained_widget = contained_widget()
+        self.data_widget = contained_widget
         self.data_widget.is_localized = self.is_localized
         super(MapWidget, self).__init__(attrs)
 
@@ -209,7 +211,6 @@ class MapWidget(Widget):
 
     def __deepcopy__(self, memo):
         obj = super(MapWidget, self).__deepcopy__(memo)
-        obj.widget_type = copy.deepcopy(self.widget_type)
         obj.key_widget = copy.deepcopy(self.key_widget)
         obj.data_widget = copy.deepcopy(self.data_widget)
         return obj

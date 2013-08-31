@@ -65,8 +65,8 @@ class ReferenceField(forms.ChoiceField):
     """
     def __init__(self, queryset, empty_label="---------", *args, **kwargs):
         forms.Field.__init__(self, *args, **kwargs)
-        self.queryset = queryset
         self.empty_label = empty_label
+        self.queryset = queryset
 
     def _get_queryset(self):
         return self._queryset.clone()
@@ -175,10 +175,8 @@ class ListField(forms.Field):
             contained_widget = contained_field.widget
             
         if isinstance(contained_widget, type):
-            w_type = contained_widget
-        else:
-            w_type = contained_widget.__class__
-        self.widget = self.widget(w_type)
+            contained_widget = contained_widget()
+        self.widget = self.widget(contained_widget)
         
         super(ListField, self).__init__(*args, **kwargs)
         
@@ -230,6 +228,13 @@ class ListField(forms.Field):
             if self.contained_field._has_changed(initial, data):
                 return True
         return False
+        
+    def prepare_value(self, value):
+        value = super(ListField, self).prepare_value(value)
+        prep_val = []
+        for v in value:
+            prep_val.append(self.contained_field.prepare_value(v))
+        return prep_val
 
 class MapField(forms.Field):
     default_error_messages = {
@@ -250,10 +255,8 @@ class MapField(forms.Field):
             contained_widget = contained_field.widget
             
         if isinstance(contained_widget, type):
-            w_type = contained_widget
-        else:
-            w_type = contained_widget.__class__
-        self.widget = self.widget(w_type)
+            contained_widget = contained_widget()
+        self.widget = self.widget(contained_widget)
         
         super(MapField, self).__init__(*args, **kwargs)
         
