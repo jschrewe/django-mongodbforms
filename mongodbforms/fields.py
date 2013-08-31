@@ -165,13 +165,15 @@ class ListField(forms.Field):
     widget = ListWidget
     hidden_widget = forms.MultipleHiddenInput
 
-    def __init__(self, field_type, *args, **kwargs):
+    def __init__(self, contained_field, *args, **kwargs):
         if 'widget' in kwargs:
             self.widget = kwargs.pop('widget')
         
-        self.field_type = field_type
-        
-        contained_widget = self.field_type().widget
+        if isinstance(contained_field, type):
+            contained_widget = contained_field().widget
+        else:
+            contained_widget = contained_field.widget
+            
         if isinstance(contained_widget, type):
             w_type = contained_widget
         else:
@@ -179,6 +181,11 @@ class ListField(forms.Field):
         self.widget = self.widget(w_type)
         
         super(ListField, self).__init__(*args, **kwargs)
+        
+        if isinstance(contained_field, type):
+            self.contained_field = contained_field(required=self.required)
+        else:
+            self.contained_field = contained_field
         
         if not hasattr(self, 'empty_values'):
             self.empty_values = list(EMPTY_VALUES)
@@ -198,17 +205,16 @@ class ListField(forms.Field):
         else:
             raise ValidationError(self.error_messages['invalid'])
         
-        field = self.field_type(required=self.required)
         for field_value in value:
             try:
-                clean_data.append(field.clean(field_value))
+                clean_data.append(self.contained_field.clean(field_value))
             except ValidationError as e:
                 # Collect all validation errors in a single list, which we'll
                 # raise at the end of clean(), rather than raising a single
                 # exception for the first error we encounter.
                 errors.extend(e.messages)
-            if field.required:
-                field.required = False
+            if self.contained_field.required:
+                self.contained_field.required = False
         if errors:
             raise ValidationError(errors)
 
@@ -220,9 +226,8 @@ class ListField(forms.Field):
         if initial is None:
             initial = ['' for x in range(0, len(data))]
         
-        field = self.field_type(required=self.required) 
         for initial, data in zip(initial, data):
-            if field._has_changed(initial, data):
+            if self.contained_field._has_changed(initial, data):
                 return True
         return False
 
@@ -233,13 +238,17 @@ class MapField(forms.Field):
     }
     widget = MapWidget
 
-    def __init__(self, field_type, max_key_length=None, min_key_length=None, 
+    def __init__(self, contained_field, max_key_length=None, min_key_length=None, 
                  key_validators=[], field_kwargs={}, *args, **kwargs):
                  
         if 'widget' in kwargs:
             self.widget = kwargs.pop('widget')
         
-        contained_widget = field_type().widget
+        if isinstance(contained_field, type):
+            contained_widget = contained_field().widget
+        else:
+            contained_widget = contained_field.widget
+            
         if isinstance(contained_widget, type):
             w_type = contained_widget
         else:
@@ -248,6 +257,12 @@ class MapField(forms.Field):
         
         super(MapField, self).__init__(*args, **kwargs)
         
+        if isinstance(contained_field, type):
+            field_kwargs['required'] = self.required
+            self.contained_field = contained_field(**field_kwargs)
+        else:
+            self.contained_field = contained_field
+        
         self.key_validators = key_validators
         if min_key_length is not None:
             self.key_validators.append(MinLengthValidator(int(min_key_length)))
@@ -255,10 +270,6 @@ class MapField(forms.Field):
             self.key_validators.append(MaxLengthValidator(int(max_key_length)))
         
         # type of field used to store the dicts value
-        self.field_type = field_type
-        field_kwargs['required'] = self.required
-        self.field_kwargs = field_kwargs
-        
         if not hasattr(self, 'empty_values'):
             self.empty_values = list(EMPTY_VALUES)
 
@@ -294,15 +305,13 @@ class MapField(forms.Field):
             raise ValidationError(self.error_messages['invalid'])
         
         # sort out required => at least one element must be in there
-        
-        data_field = self.field_type(**self.field_kwargs)
         for key, val in value.items():
             # ignore empties. Can they even come up here?
             if key in self.empty_values and val in self.empty_values:
                 continue
             
             try:
-                val = data_field.clean(val)
+                val = self.contained_field.clean(val)
             except ValidationError as e:
                 # Collect all validation errors in a single list, which we'll
                 # raise at the end of clean(), rather than raising a single
@@ -319,8 +328,8 @@ class MapField(forms.Field):
             
             clean_data[key] = val
                 
-            if data_field.required:
-                data_field.required = False
+            if self.contained_field.required:
+                self.contained_field.required = False
                 
         if errors:
             raise ValidationError(errors)
@@ -330,7 +339,6 @@ class MapField(forms.Field):
         return clean_data
 
     def _has_changed(self, initial, data):
-        field = self.field_type(**self.field_kwargs)
         for k, v in data.items():
             if initial is None:
                 init_val = ''
@@ -339,7 +347,7 @@ class MapField(forms.Field):
                     init_val = initial[k]
                 except KeyError:
                     return True
-            if field._has_changed(init_val, v):
+            if self.contained_field._has_changed(init_val, v):
                 return True
         return False
 

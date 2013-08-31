@@ -117,14 +117,14 @@ class MongoFormFieldGenerator(object):
 
     def get_field_label(self, field):
         if field.verbose_name:
-            return field.verbose_name
+            return capfirst(field.verbose_name)
         if field.name is not None:
             return capfirst(get_verbose_name(field.name))
         return ''
 
     def get_field_help_text(self, field):
         if field.help_text:
-            return field.help_text.capitalize()
+            return field.help_text
         else:
             return ''
             
@@ -337,7 +337,7 @@ class MongoFormFieldGenerator(object):
             map_key = 'listfield'
             form_field = self.generate(field.field)
             defaults.update({
-                'field_type': form_field.__class__,
+                'contained_field': form_field.__class__,
             })
         form_class = self.form_field_map.get(map_key)
         defaults.update(self._check_widget(map_key))
@@ -355,7 +355,7 @@ class MongoFormFieldGenerator(object):
             'label': self.get_field_label(field),
             'help_text': self.get_field_help_text(field),
             'required': field.required,
-            'field_type': form_field.__class__,
+            'contained_field': form_field.__class__,
         }
         form_class = self.form_field_map.get(map_key)
         defaults.update(self._check_widget(map_key))
