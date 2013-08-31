@@ -230,6 +230,7 @@ class ListField(forms.Field):
         return False
         
     def prepare_value(self, value):
+        value = [] if value is None else value
         value = super(ListField, self).prepare_value(value)
         prep_val = []
         for v in value:
