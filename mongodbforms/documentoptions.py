@@ -17,7 +17,7 @@ def patch_document(function, instance, bound=True):
 
 def create_verbose_name(name):
     name = get_verbose_name(name)
-    name.replace('_', ' ')
+    name = name.replace('_', ' ')
     return name
 
 class PkWrapper(object):

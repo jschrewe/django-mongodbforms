@@ -15,7 +15,6 @@ except ImportError:
         from django.utils.encoding import smart_unicode
     except ImportError:
         from django.forms.util import smart_unicode
-from django.db.models.options import get_verbose_name
 from django.utils.text import capfirst
 
 from mongoengine import ReferenceField as MongoReferenceField, EmbeddedDocumentField as MongoEmbeddedDocumentField, \
@@ -23,6 +22,7 @@ from mongoengine import ReferenceField as MongoReferenceField, EmbeddedDocumentF
 
 from .fields import MongoCharField, ReferenceField, DocumentMultipleChoiceField, ListField, MapField
 from .widgets import DynamicListWidget
+from .documentoptions import create_verbose_name
 
 BLANK_CHOICE_DASH = [("", "---------")]
 
@@ -119,7 +119,7 @@ class MongoFormFieldGenerator(object):
         if field.verbose_name:
             return capfirst(field.verbose_name)
         if field.name is not None:
-            return capfirst(get_verbose_name(field.name))
+            return capfirst(create_verbose_name(field.name))
         return ''
 
     def get_field_help_text(self, field):
