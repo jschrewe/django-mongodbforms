@@ -19,6 +19,23 @@ def create_verbose_name(name):
     name = get_verbose_name(name)
     name = name.replace('_', ' ')
     return name
+    
+class Relation(object):
+    # just an empty dict to make it useable with Django
+    # mongoengine has no notion of this
+    limit_choices_to = {}
+    def __init__(self, to):
+        self._to = to
+    
+    @property    
+    def to(self):
+        if not isinstance(self._to._meta, DocumentMetaWrapper):
+            self._to._meta = DocumentMetaWrapper(document)
+        return self._to
+        
+    @to.setter
+    def to(self, value):
+        self._to = value
 
 class PkWrapper(object):
     def __init__(self, wrapped):
@@ -92,7 +109,10 @@ class DocumentMetaWrapper(MutableMapping):
             # at least in the admin, probably in more places.
             if not hasattr(f, 'rel'):
                 # need a bit more for actual reference fields here
-                f.rel = None
+                if isinstance(f, ReferenceField):
+                    f.rel = Relation(f.document_type)
+                else:
+                    f.rel = None
             if not hasattr(f, 'verbose_name') or f.verbose_name is None:
                 f.verbose_name = capfirst(create_verbose_name(f.name))
             if not hasattr(f, 'flatchoices'):
