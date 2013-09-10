@@ -6,7 +6,7 @@ from django.db.models.fields import FieldDoesNotExist
 from django.utils.text import capfirst
 from django.db.models.options import get_verbose_name
 
-from mongoengine.fields import ReferenceField
+from mongoengine.fields import ReferenceField, ListField
 
 def patch_document(function, instance, bound=True):
     if bound:
@@ -111,6 +111,8 @@ class DocumentMetaWrapper(MutableMapping):
                 # need a bit more for actual reference fields here
                 if isinstance(f, ReferenceField):
                     f.rel = Relation(f.document_type)
+                elif isinstance(f, ListField) and isinstance(f.field, ReferenceField):
+                    f.field.rel = Relation(f.field.document_type)
                 else:
                     f.rel = None
             if not hasattr(f, 'verbose_name') or f.verbose_name is None:
