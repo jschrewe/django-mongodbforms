@@ -30,7 +30,7 @@ class Relation(object):
     @property    
     def to(self):
         if not isinstance(self._to._meta, DocumentMetaWrapper):
-            self._to._meta = DocumentMetaWrapper(document)
+            self._to._meta = DocumentMetaWrapper(self._to)
         return self._to
         
     @to.setter
