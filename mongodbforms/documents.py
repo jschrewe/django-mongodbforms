@@ -20,6 +20,7 @@ except ImportError:
     from mongoengine.errors import ValidationError
 from mongoengine.queryset import OperationError, Q
 from mongoengine.connection import get_db, DEFAULT_CONNECTION_NAME
+from mongoengine.base import NON_FIELD_ERRORS as MONGO_NON_FIELD_ERRORS
 from gridfs import GridFS
 
 from .documentoptions import DocumentMetaWrapper
@@ -408,8 +409,11 @@ class BaseDocumentForm(BaseForm):
             try:
                 self.instance.clean()
             except ValidationError as e:
-                messages = format_mongo_validation_errors(e)
-                self._update_errors({NON_FIELD_ERRORS: messages})
+                if MONGO_NON_FIELD_ERRORS in e.errors:
+                    error = e.errors.get(MONGO_NON_FIELD_ERRORS)
+                else:
+                    error = e.message
+                self._update_errors({NON_FIELD_ERRORS: error})
 
         # Validate uniqueness if needed.
         if self._validate_unique:
