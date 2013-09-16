@@ -413,7 +413,7 @@ class BaseDocumentForm(BaseForm):
                     error = e.errors.get(MONGO_NON_FIELD_ERRORS)
                 else:
                     error = e.message
-                self._update_errors({NON_FIELD_ERRORS: error})
+                self._update_errors({NON_FIELD_ERRORS: [error, ]})
 
         # Validate uniqueness if needed.
         if self._validate_unique:
@@ -464,8 +464,6 @@ class BaseDocumentForm(BaseForm):
         
         return errors
                 
-    
-
     def save(self, commit=True):
         """
         Saves this ``form``'s cleaned_data into model instance
@@ -486,6 +484,7 @@ class BaseDocumentForm(BaseForm):
 
         return obj
     save.alters_data = True
+
 
 class DocumentForm(with_metaclass(DocumentFormMetaclass, BaseDocumentForm)):
     pass
