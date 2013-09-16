@@ -23,7 +23,7 @@ from mongoengine.connection import get_db, DEFAULT_CONNECTION_NAME
 from gridfs import GridFS
 
 from .documentoptions import DocumentMetaWrapper
-from .util import with_metaclass, load_field_generator
+from .util import with_metaclass, load_field_generator, format_mongo_validation_errors
 
 _fieldgenerator = load_field_generator()
 
@@ -408,7 +408,8 @@ class BaseDocumentForm(BaseForm):
             try:
                 self.instance.clean()
             except ValidationError as e:
-                self._update_errors({NON_FIELD_ERRORS: e.messages})
+                messages = format_mongo_validation_errors(e)
+                self._update_errors({NON_FIELD_ERRORS: messages})
 
         # Validate uniqueness if needed.
         if self._validate_unique:

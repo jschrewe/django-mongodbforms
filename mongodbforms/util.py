@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from django.conf import settings
 
 from .documentoptions import DocumentMetaWrapper
@@ -49,6 +51,23 @@ def init_document_options(document):
 
 def get_document_options(document):
     return DocumentMetaWrapper(document)
+
+def format_mongo_validation_errors(validation_exception):
+    """Returns a string listing all errors within a document"""
+
+    def generate_key(value, prefix=''):
+        if isinstance(value, list):
+            value = ' '.join([generate_key(k) for k in value])
+        if isinstance(value, dict):
+            value = ' '.join([generate_key(v, k) for k, v in value.iteritems()])
+
+        results = "%s.%s" % (prefix, value) if prefix else value
+        return results
+
+    error_dict = defaultdict(list)
+    for k, v in validation_exception.to_dict().iteritems():
+        error_dict[generate_key(v)].append(k)
+    return ["%s: %s" % (k, v) for k, v in error_dict.iteritems()]
 
 # Taken from six (https://pypi.python.org/pypi/six)
 # by "Benjamin Peterson <benjamin@python.org>"
