@@ -404,16 +404,21 @@ class BaseDocumentForm(BaseForm):
             err = {f.name: [e.message]}
             self._update_errors(err)
 
+        
         # Call the model instance's clean method.
-        if hasattr(self.instance, 'clean'):
-            try:
-                self.instance.clean()
-            except ValidationError as e:
-                if MONGO_NON_FIELD_ERRORS in e.errors:
-                    error = e.errors.get(MONGO_NON_FIELD_ERRORS)
-                else:
-                    error = e.message
-                self._update_errors({NON_FIELD_ERRORS: [error, ]})
+        original_fields = self.instance._fields_ordered
+        to_check = [f for f in original_fields if f not in exclude]
+        self.instance._fields_ordered = to_check
+        try:
+            self.instance.validate()
+        except ValidationError as e:
+            if MONGO_NON_FIELD_ERRORS in e.errors:
+                error = e.errors.get(MONGO_NON_FIELD_ERRORS)
+            else:
+                error = e.message
+            self._update_errors({NON_FIELD_ERRORS: [error, ]})
+        finally:
+            self.instance._fields_ordered = original_fields
 
         # Validate uniqueness if needed.
         if self._validate_unique:
