@@ -407,7 +407,7 @@ class BaseDocumentForm(BaseForm):
         
         # Call the model instance's clean method.
         original_fields = self.instance._fields_ordered
-        to_check = [f for f in original_fields if f not in exclude]
+        to_check = tuple([f for f in original_fields if f not in exclude])
         self.instance._fields_ordered = to_check
         try:
             self.instance.validate()
