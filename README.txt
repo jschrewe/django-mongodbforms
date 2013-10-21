@@ -7,8 +7,8 @@ documents.
 Requirements
 ------------
 
--  Django >= 1.3
--  `mongoengine <http://mongoengine.org/>`__ >= 0.6
+-  Django >= 1.4
+-  `mongoengine <http://mongoengine.org/>`__ >= 0.8.3
 
 Supported field types
 ---------------------

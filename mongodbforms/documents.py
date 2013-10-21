@@ -1,9 +1,8 @@
 import os
 import itertools
-from collections import Callable
+from collections import Callable, OrderedDict
 from functools import reduce
 
-from django.utils.datastructures import SortedDict
 from django.forms.forms import BaseForm, get_declared_fields, NON_FIELD_ERRORS, pretty_name
 from django.forms.widgets import media_property
 from django.core.exceptions import FieldError
@@ -166,8 +165,7 @@ def save_instance(form, instance, fields=None, fail_message='saved',
             instance.save()
             instance._data = data
         else:
-            instance.save()
-        
+            instance.save()   
     return instance
 
 def document_to_dict(instance, fields=None, exclude=None):
@@ -230,8 +228,15 @@ def fields_for_document(document, fields=None, exclude=None, widgets=None, \
 
         if formfield:
             field_list.append((f.name, formfield))
+    
+    field_dict = OrderedDict(field_list)
+    if fields:
+        field_dict = OrderedDict(
+            [(f, field_dict.get(f)) for f in fields
+                if ((not exclude) or (exclude and f not in exclude))]
+        )
 
-    return SortedDict(field_list)
+    return field_dict
 
 
 
@@ -399,16 +404,24 @@ class BaseDocumentForm(BaseForm):
                     # mongoengine chokes on empty strings for fields
                     # that are not required. Clean them up here, though
                     # this is maybe not the right place :-)
-                    opts._dont_save.append(f.name)
+                    print "Setting %s to None" % f.name
+                    setattr(self.instance, f.name, None)
+                    #opts._dont_save.append(f.name)
         except ValidationError as e:
             err = {f.name: [e.message]}
             self._update_errors(err)
 
         
-        # Call the model instance's clean method.
+        # Call validate() on the document. Since mongoengine
+        # does not provide an argument to specify which fields
+        # should be excluded during validation, we replace
+        # instance._fields_ordered with a version that does
+        # not include excluded fields. The attribute gets
+        # restored after validation.
         original_fields = self.instance._fields_ordered
-        to_check = tuple([f for f in original_fields if f not in exclude])
-        self.instance._fields_ordered = to_check
+        self.instance._fields_ordered = tuple(
+                [f for f in original_fields if f not in exclude]
+        )
         try:
             self.instance.validate()
         except ValidationError as e:

@@ -224,7 +224,7 @@ class DocumentMetaWrapper(MutableMapping):
         
         NOTE: Not sure this is actually usefull for documents. So at the moment
         it's really only here because the admin wants it. It might prove usefull
-        for someone though, so it'S more then just a dummy.
+        for someone though, so it's more then just a dummy.
         """
         if self._meta.get('swappable', False):
             model_label = '%s.%s' % (self.app_label, self.object_name.lower())
