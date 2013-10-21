@@ -404,7 +404,6 @@ class BaseDocumentForm(BaseForm):
                     # mongoengine chokes on empty strings for fields
                     # that are not required. Clean them up here, though
                     # this is maybe not the right place :-)
-                    print "Setting %s to None" % f.name
                     setattr(self.instance, f.name, None)
                     #opts._dont_save.append(f.name)
         except ValidationError as e:
