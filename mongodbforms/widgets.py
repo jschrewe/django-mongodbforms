@@ -1,9 +1,12 @@
 import copy
 
-from django.forms.widgets import Widget, Media, TextInput, SplitDateTimeWidget, DateInput, TimeInput, MultiWidget
+from django.forms.widgets import (Widget, Media, TextInput,
+                                  SplitDateTimeWidget, DateInput, TimeInput,
+                                  MultiWidget)
 from django.utils.safestring import mark_safe
 from django.core.validators import EMPTY_VALUES
 from django.forms.util import flatatt
+
 
 class Html5SplitDateTimeWidget(SplitDateTimeWidget):
     def __init__(self, attrs=None, date_format=None, time_format=None):
@@ -13,6 +16,7 @@ class Html5SplitDateTimeWidget(SplitDateTimeWidget):
         time_input.input_type = 'time'
         widgets = (date_input, time_input)
         MultiWidget.__init__(self, widgets, attrs)
+
 
 class ListWidget(Widget):
     def __init__(self, contained_widget, attrs=None):
@@ -25,7 +29,9 @@ class ListWidget(Widget):
 
     def render(self, name, value, attrs=None):
         if value is not None and not isinstance(value, (list, tuple)):
-            raise TypeError("Value supplied for %s must be a list or tuple." % name) 
+            raise TypeError(
+                "Value supplied for %s must be a list or tuple." % name
+            )
                 
         output = []
         value = [] if value is None else value
@@ -35,7 +41,9 @@ class ListWidget(Widget):
         for i, widget_value in enumerate(value):
             if id_:
                 final_attrs = dict(final_attrs, id='%s_%s' % (id_, i))
-            output.append(self.contained_widget.render(name + '_%s' % i, widget_value, final_attrs))
+            output.append(self.contained_widget.render(
+                name + '_%s' % i, widget_value, final_attrs)
+            )
         return mark_safe(self.format_output(output))
 
     def id_for_label(self, id_):
@@ -51,9 +59,9 @@ class ListWidget(Widget):
         while (name + '_%s' % i) in data or (name + '_%s' % i) in files:
             value = widget.value_from_datadict(data, files, name + '_%s' % i)
             # we need a different list if we handle files. Basicly Django sends
-            # back the initial values if we're not dealing with files. If we store
-            # files on the list, we need to add empty values to the clean data,
-            # so the list positions are kept.
+            # back the initial values if we're not dealing with files. If we
+            # store files on the list, we need to add empty values to the clean
+            # data, so the list positions are kept.
             if value not in EMPTY_VALUES or (value is None and len(files) > 0):
                 ret.append(value)
             i = i + 1
@@ -70,7 +78,10 @@ class ListWidget(Widget):
         return ''.join(rendered_widgets)
 
     def _get_media(self):
-        "Media for a multiwidget is the combination of all media of the subwidgets"
+        """
+        Media for a multiwidget is the combination of all media of
+        the subwidgets
+        """
         media = Media()
         for w in self.widgets:
             media = media + w.media
@@ -82,6 +93,7 @@ class ListWidget(Widget):
         obj.contained_widget = copy.deepcopy(self.contained_widget)
         #obj.widget_type = copy.deepcopy(self.widget_type)
         return obj
+
 
 class MapWidget(Widget):
     """
@@ -128,21 +140,28 @@ class MapWidget(Widget):
         id_ = final_attrs.get('id', None)
         fieldset_attr = {}
         
-        value = list(value.items()) # in Python 3.X dict.items() returns dynamic *view objects*
+        # in Python 3.X dict.items() returns dynamic *view objects*
+        value = list(value.items())
         value.append(('', ''))
         for i, (key, widget_value) in enumerate(value):
             if id_:
-                fieldset_attr = dict(final_attrs, id='fieldset_%s_%s' % (id_, i))
+                fieldset_attr = dict(
+                    final_attrs, id='fieldset_%s_%s' % (id_, i)
+                )
             group = []
             group.append(mark_safe('<fieldset %s>' % flatatt(fieldset_attr)))
             
             if id_:
                 final_attrs = dict(final_attrs, id='%s_key_%s' % (id_, i))
-            group.append(self.key_widget.render(name + '_key_%s' % i, key, final_attrs))
+            group.append(self.key_widget.render(
+                name + '_key_%s' % i, key, final_attrs)
+            )
             
             if id_:
                 final_attrs = dict(final_attrs, id='%s_value_%s' % (id_, i))
-            group.append(self.data_widget.render(name + '_value_%s' % i, widget_value, final_attrs))
+            group.append(self.data_widget.render(
+                name + '_value_%s' % i, widget_value, final_attrs)
+            )
             group.append(mark_safe('</fieldset>'))
             
             output.append(mark_safe(''.join(group)))
@@ -158,8 +177,12 @@ class MapWidget(Widget):
         i = 0
         ret = {}
         while (name + '_key_%s' % i) in data:
-            key = self.key_widget.value_from_datadict(data, files, name + '_key_%s' % i)
-            value = self.data_widget.value_from_datadict(data, files, name + '_value_%s' % i)
+            key = self.key_widget.value_from_datadict(
+                data, files, name + '_key_%s' % i
+            )
+            value = self.data_widget.value_from_datadict(
+                data, files, name + '_value_%s' % i
+            )
             if key not in EMPTY_VALUES:
                 ret.update(((key, value), ))
             i = i + 1
@@ -176,7 +199,10 @@ class MapWidget(Widget):
         return ''.join(rendered_widgets)
 
     def _get_media(self):
-        "Media for a multiwidget is the combination of all media of the subwidgets"
+        """
+        Media for a multiwidget is the combination of all media of
+        the subwidgets.
+        """
         media = Media()
         for w in self.widgets:
             media = media + w.media
@@ -188,6 +214,3 @@ class MapWidget(Widget):
         obj.key_widget = copy.deepcopy(self.key_widget)
         obj.data_widget = copy.deepcopy(self.data_widget)
         return obj
-
-
-    

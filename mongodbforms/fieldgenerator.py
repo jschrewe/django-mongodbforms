@@ -17,14 +17,20 @@ except ImportError:
         from django.forms.util import smart_unicode
 from django.utils.text import capfirst
 
-from mongoengine import ReferenceField as MongoReferenceField, EmbeddedDocumentField as MongoEmbeddedDocumentField, \
-                ListField as MongoListField, MapField as MongoMapField
+from mongoengine import (ReferenceField as MongoReferenceField,
+                         EmbeddedDocumentField as MongoEmbeddedDocumentField,
+                         ListField as MongoListField,
+                         MapField as MongoMapField)
 
-from .fields import MongoCharField, ReferenceField, DocumentMultipleChoiceField, ListField, MapField
+from mongodbforms.fields import (MongoCharField, MongoEmailField,
+                                 MongoURLField, ReferenceField,
+                                 DocumentMultipleChoiceField, ListField,
+                                 MapField)
 from .widgets import Html5SplitDateTimeWidget
 from .documentoptions import create_verbose_name
 
 BLANK_CHOICE_DASH = [("", "---------")]
+
 
 class MongoFormFieldGenerator(object):
     """This class generates Django form-fields for mongoengine-fields."""
@@ -40,8 +46,8 @@ class MongoFormFieldGenerator(object):
         'stringfield': MongoCharField,
         'stringfield_choices': forms.TypedChoiceField,
         'stringfield_long': MongoCharField,
-        'emailfield': forms.EmailField,
-        'urlfield': forms.URLField,
+        'emailfield': MongoEmailField,
+        'urlfield': MongoURLField,
         'intfield': forms.IntegerField,
         'intfield_choices': forms.TypedChoiceField,
         'floatfield': forms.FloatField,
@@ -90,10 +96,11 @@ class MongoFormFieldGenerator(object):
                 return getattr(self, attr_name)(field, **kwargs)
 
             if cls_name in self.form_field_map:
-                return getattr(self, self.generator_map.get(cls_name))(field, **kwargs)
+                attr = self.generator_map.get(cls_name)
+                return getattr(self, attr)(field, **kwargs)
                 
-        raise NotImplementedError('%s is not supported by MongoForm' % \
-                            field.__class__.__name__)
+        raise NotImplementedError('%s is not supported by MongoForm' %
+                                  field.__class__.__name__)
 
     def get_field_choices(self, field, include_blank=True,
                           blank_choice=BLANK_CHOICE_DASH):
@@ -203,7 +210,7 @@ class MongoFormFieldGenerator(object):
             'max_length': field.max_length,
             'initial': self.get_field_default(field),
             'label': self.get_field_label(field),
-            'help_text':  self.get_field_help_text(field)
+            'help_text': self.get_field_help_text(field)
         }
         form_class = self.form_field_map.get(map_key)
         defaults.update(self.check_widget(map_key))
@@ -313,7 +320,8 @@ class MongoFormFieldGenerator(object):
         return form_class(**defaults)
 
     def generate_listfield(self, field, **kwargs):
-        # we can't really handle embedded documents here. So we just ignore them
+        # We can't really handle embedded documents here.
+        # So we just ignore them
         if isinstance(field.field, MongoEmbeddedDocumentField):
             return
         
@@ -345,7 +353,8 @@ class MongoFormFieldGenerator(object):
         return form_class(**defaults)
         
     def generate_mapfield(self, field, **kwargs):
-        # we can't really handle embedded documents here. So we just ignore them
+        # We can't really handle embedded documents here.
+        # So we just ignore them
         if isinstance(field.field, MongoEmbeddedDocumentField):
             return
             
@@ -365,8 +374,8 @@ class MongoFormFieldGenerator(object):
     def generate_filefield(self, field, **kwargs):
         map_key = 'filefield'
         defaults = {
-            'required':field.required,
-            'label':self.get_field_label(field),
+            'required': field.required,
+            'label': self.get_field_label(field),
             'initial': self.get_field_default(field),
             'help_text': self.get_field_help_text(field)
         }
@@ -378,8 +387,8 @@ class MongoFormFieldGenerator(object):
     def generate_imagefield(self, field, **kwargs):
         map_key = 'imagefield'
         defaults = {
-            'required':field.required,
-            'label':self.get_field_label(field),
+            'required': field.required,
+            'label': self.get_field_label(field),
             'initial': self.get_field_default(field),
             'help_text': self.get_field_help_text(field)
         }
@@ -398,7 +407,8 @@ class MongoDefaultFormFieldGenerator(MongoFormFieldGenerator):
         can be found.
         """
         try:
-            return super(MongoDefaultFormFieldGenerator, self).generate(field, **kwargs)
+            sup = super(MongoDefaultFormFieldGenerator, self)
+            return sup.generate(field, **kwargs)
         except NotImplementedError:
             # a normal charfield is always a good guess
             # for a widget.
@@ -416,6 +426,7 @@ class MongoDefaultFormFieldGenerator(MongoFormFieldGenerator):
 
             defaults.update(kwargs)
             return forms.CharField(**defaults)
+
 
 class Html5FormFieldGenerator(MongoDefaultFormFieldGenerator):
     def check_widget(self, map_key):

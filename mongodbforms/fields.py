@@ -7,7 +7,8 @@ Wilson Júnior (wilsonpjunior@gmail.com).
 import copy
 
 from django import forms
-from django.core.validators import EMPTY_VALUES, MinLengthValidator, MaxLengthValidator
+from django.core.validators import (EMPTY_VALUES, MinLengthValidator,
+                                    MaxLengthValidator)
 
 try:
     from django.utils.encoding import force_text as force_unicode
@@ -33,7 +34,8 @@ except ImportError:
     from pymongo.objectid import ObjectId
     from pymongo.errors import InvalidId
     
-from .widgets import ListWidget, MapWidget
+from mongodbforms.widgets import ListWidget, MapWidget
+
 
 class MongoChoiceIterator(object):
     def __init__(self, field):
@@ -51,17 +53,43 @@ class MongoChoiceIterator(object):
         return len(self.queryset)
 
     def choice(self, obj):
-        return (self.field.prepare_value(obj), self.field.label_from_instance(obj))
+        return (self.field.prepare_value(obj),
+                self.field.label_from_instance(obj))
 
-class MongoCharField(forms.CharField):
+
+class NormalizeValueMixin(object):
+    """
+    mongoengine doesn't treat fields that return an empty string
+    as empty. This mixins can be used to create fields that return
+    None instead of an empty string.
+    """
     def to_python(self, value):
+        value = super(NormalizeValueMixin, self).to_python(value)
         if value in EMPTY_VALUES:
             return None
-        return smart_unicode(value)
+        return value
+        
+        
+class MongoCharField(NormalizeValueMixin, forms.CharField):
+    pass
+    
+
+class MongoEmailField(NormalizeValueMixin, forms.EmailField):
+    pass
+    
+
+class MongoSlugField(NormalizeValueMixin, forms.SlugField):
+    pass
+    
+
+class MongoURLField(NormalizeValueMixin, forms.URLField):
+    pass
+    
 
 class ReferenceField(forms.ChoiceField):
     """
-    Reference field for mongo forms. Inspired by `django.forms.models.ModelChoiceField`.
+    Reference field for mongo forms. Inspired by
+    `django.forms.models.ModelChoiceField`.
     """
     def __init__(self, queryset, empty_label="---------", *args, **kwargs):
         forms.Field.__init__(self, *args, **kwargs)
@@ -89,8 +117,9 @@ class ReferenceField(forms.ChoiceField):
     def label_from_instance(self, obj):
         """
         This method is used to convert objects into strings; it's used to
-        generate the labels for the choices presented by this object. Subclasses
-        can override this method to customize the display of the choices.
+        generate the labels for the choices presented by this object.
+        Subclasses can override this method to customize the display of
+        the choices.
         """
         return smart_unicode(obj)
 
@@ -107,14 +136,17 @@ class ReferenceField(forms.ChoiceField):
         try:
             obj = self.queryset.get(pk=oid)
         except (TypeError, InvalidId, self.queryset._document.DoesNotExist):
-            raise forms.ValidationError(self.error_messages['invalid_choice'] % {'value':value})
+            raise forms.ValidationError(
+                self.error_messages['invalid_choice'] % {'value': value}
+            )
         return obj
     
     def __deepcopy__(self, memo):
         result = super(forms.ChoiceField, self).__deepcopy__(memo)
-        result.queryset = self.queryset # self.queryset calls clone()
+        result.queryset = self.queryset  # self.queryset calls clone()
         result.empty_label = copy.deepcopy(self.empty_label)
         return result
+
 
 class DocumentMultipleChoiceField(ReferenceField):
     """A MultipleChoiceField whose choices are a model QuerySet."""
@@ -128,7 +160,9 @@ class DocumentMultipleChoiceField(ReferenceField):
     }
 
     def __init__(self, queryset, *args, **kwargs):
-        super(DocumentMultipleChoiceField, self).__init__(queryset, empty_label=None, *args, **kwargs)
+        super(DocumentMultipleChoiceField, self).__init__(
+            queryset, empty_label=None, *args, **kwargs
+        )
 
     def clean(self, value):
         if self.required and not value:
@@ -142,11 +176,15 @@ class DocumentMultipleChoiceField(ReferenceField):
         try:
             qs = qs.filter(pk__in=value)
         except ValidationError:
-            raise forms.ValidationError(self.error_messages['invalid_pk_value'] % str(value))
+            raise forms.ValidationError(
+                self.error_messages['invalid_pk_value'] % str(value)
+            )
         pks = set([force_unicode(getattr(o, 'pk')) for o in qs])
         for val in value:
             if force_unicode(val) not in pks:
-                raise forms.ValidationError(self.error_messages['invalid_choice'] % val)
+                raise forms.ValidationError(
+                    self.error_messages['invalid_choice'] % val
+                )
         # Since this overrides the inherited ModelChoiceField.clean
         # we run custom validators here
         self.run_validators(value)
@@ -154,7 +192,8 @@ class DocumentMultipleChoiceField(ReferenceField):
 
     def prepare_value(self, value):
         if hasattr(value, '__iter__') and not hasattr(value, '_meta'):
-            return [super(DocumentMultipleChoiceField, self).prepare_value(v) for v in value]
+            sup = super(DocumentMultipleChoiceField, self)
+            return [sup.prepare_value(v) for v in value]
         return super(DocumentMultipleChoiceField, self).prepare_value(value)
     
     
@@ -195,7 +234,9 @@ class ListField(forms.Field):
         clean_data = []
         errors = ErrorList()
         if not value or isinstance(value, (list, tuple)):
-            if not value or not [v for v in value if v not in self.empty_values]:
+            if not value or not [
+                    v for v in value if v not in self.empty_values
+            ]:
                 if self.required:
                     raise ValidationError(self.error_messages['required'])
                 else:
@@ -237,6 +278,7 @@ class ListField(forms.Field):
             prep_val.append(self.contained_field.prepare_value(v))
         return prep_val
 
+
 class MapField(forms.Field):
     default_error_messages = {
         'invalid': _('Enter a list of values.'),
@@ -244,8 +286,9 @@ class MapField(forms.Field):
     }
     widget = MapWidget
 
-    def __init__(self, contained_field, max_key_length=None, min_key_length=None, 
-                 key_validators=[], field_kwargs={}, *args, **kwargs):
+    def __init__(self, contained_field, max_key_length=None,
+                 min_key_length=None, key_validators=[], field_kwargs={},
+                 *args, **kwargs):
                  
         if 'widget' in kwargs:
             self.widget = kwargs.pop('widget')
@@ -279,7 +322,8 @@ class MapField(forms.Field):
 
     def _validate_key(self, key):
         if key in self.empty_values and self.required:
-            raise ValidationError(self.error_messages['key_required'], code='key_required')
+            raise ValidationError(self.error_messages['key_required'],
+                                  code='key_required')
         errors = []
         for v in self.key_validators:
             try:
@@ -300,7 +344,9 @@ class MapField(forms.Field):
         clean_data = {}
         errors = ErrorList()
         if not value or isinstance(value, dict):
-            if not value or not [v for v in value.values() if v not in self.empty_values]:
+            if not value or not [
+                    v for v in value.values() if v not in self.empty_values
+            ]:
                 if self.required:
                     raise ValidationError(self.error_messages['required'])
                 else:
@@ -354,15 +400,3 @@ class MapField(forms.Field):
             if self.contained_field._has_changed(init_val, v):
                 return True
         return False
-
-
-
-
-
-
-
-
-
-
-
-
