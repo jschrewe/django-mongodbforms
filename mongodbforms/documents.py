@@ -502,8 +502,8 @@ class BaseDocumentForm(BaseForm):
                             filter_kwargs['q_obj'] = q & filter_kwargs['q_obj']
                         else:
                             filter_kwargs[u_with] = u_with_attr
-                qs = self.instance.__class__.objects
-                qs.no_dereference().filter(**filter_kwargs)
+                qs = self.instance.__class__.objects.clone()
+                qs = qs.no_dereference().filter(**filter_kwargs)
                 # Exclude the current object from the query if we are editing
                 # an instance (as opposed to creating a new one)
                 if self.instance.pk is not None:
