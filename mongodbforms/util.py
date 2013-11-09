@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from django.conf import settings
 
-from .documentoptions import DocumentMetaWrapper
+from mongodbforms.documentoptions import DocumentMetaWrapper, LazyDocumentMetaWrapper
 from .fieldgenerator import MongoDefaultFormFieldGenerator
 
 try:
@@ -50,7 +50,9 @@ def load_field_generator():
 
 
 def init_document_options(document):
-    if not isinstance(document._meta, DocumentMetaWrapper):
+    if not (isinstance(document._meta, DocumentMetaWrapper) or
+            isinstance(document._meta, LazyDocumentMetaWrapper)):
+        print "setting up wrapper for meta of type %s" % type(document._meta)
         document._meta = DocumentMetaWrapper(document)
     return document
 

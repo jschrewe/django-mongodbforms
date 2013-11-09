@@ -5,6 +5,7 @@ from types import MethodType
 from django.db.models.fields import FieldDoesNotExist
 from django.utils.text import capfirst
 from django.db.models.options import get_verbose_name
+from django.utils.functional import LazyObject, empty
 
 from mongoengine.fields import ReferenceField, ListField
 
@@ -57,6 +58,56 @@ class PkWrapper(object):
         super(PkWrapper, self).__setattr__(attr, value)
 
 
+class LazyDocumentMetaWrapper(LazyObject):
+    _document = None
+    _meta = None
+    
+    def __init__(self, document):
+        self._document = document
+        self._meta = document._meta
+        super(LazyDocumentMetaWrapper, self).__init__()
+        
+    def _setup(self):
+        self._wrapped = DocumentMetaWrapper(self._document, self._meta)
+        
+    def __setattr__(self, name, value):
+        if name in ["_document", "_meta",]:
+            # Assign to __dict__ to avoid infinite __setattr__ loops.
+            object.__setattr__(self, name, value)
+        else:
+            super(LazyDocumentMetaWrapper, self).__setattr__(name, value)
+    
+    def __dir__(self):
+        if self._wrapped is empty: 
+            self._setup()
+        return self._wrapped.__dir__()
+        
+    def __getitem__(self, key):
+        if self._wrapped is empty: 
+            self._setup()
+        return self._wrapped.__getitem__(key)
+    
+    def __setitem__(self, key, value):
+        if self._wrapped is empty: 
+            self._setup()
+        return self._wrapped.__getitem__(key, value)
+        
+    def __delitem__(self, key):
+        if self._wrapped is empty: 
+            self._setup()
+        return self._wrapped.__delitem__(key)
+        
+    def __len__(self):
+        if self._wrapped is empty: 
+            self._setup()
+        return self._wrapped.__len__()
+        
+    def __contains__(self, key):
+        if self._wrapped is empty: 
+            self._setup()
+        return self._wrapped.__contains__(key)
+        
+
 class DocumentMetaWrapper(MutableMapping):
     """
     Used to store mongoengine's _meta dict to make the document admin
@@ -81,14 +132,19 @@ class DocumentMetaWrapper(MutableMapping):
     concrete_model = None
     concrete_managers = []
 
-    def __init__(self, document):
+    def __init__(self, document, meta=None):
         super(DocumentMetaWrapper, self).__init__()
 
+        print "__init__'s document is:"
+        print type(document)
         self.document = document
         # used by Django to distinguish between abstract and concrete models
         # here for now always the document
         self.concrete_model = document
-        self._meta = getattr(document, '_meta', {})
+        if meta is None:
+            self._meta = getattr(document, '_meta', {})
+        else:
+            self._meta = meta
 
         try:
             self.object_name = self.document.__name__
@@ -131,9 +187,10 @@ class DocumentMetaWrapper(MutableMapping):
                             flat.append((choice, value))
                 f.flatchoices = flat
             if isinstance(f, ReferenceField) and not \
-                    isinstance(f.document_type._meta, DocumentMetaWrapper) \
-                    and self.document != f.document_type:
-                f.document_type._meta = DocumentMetaWrapper(f.document_type)
+                    isinstance(f.document_type._meta, DocumentMetaWrapper) and not \
+                    isinstance(f.document_type._meta, LazyDocumentMetaWrapper) and \
+                    self.document != f.document_type:
+                f.document_type._meta = LazyDocumentMetaWrapper(f.document_type)
 
     def _init_pk(self):
         """
