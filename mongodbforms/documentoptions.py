@@ -135,8 +135,6 @@ class DocumentMetaWrapper(MutableMapping):
     def __init__(self, document, meta=None):
         super(DocumentMetaWrapper, self).__init__()
 
-        print "__init__'s document is:"
-        print type(document)
         self.document = document
         # used by Django to distinguish between abstract and concrete models
         # here for now always the document
