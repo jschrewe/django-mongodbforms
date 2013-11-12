@@ -18,15 +18,47 @@ class Html5SplitDateTimeWidget(SplitDateTimeWidget):
         MultiWidget.__init__(self, widgets, attrs)
 
 
-class ListWidget(Widget):
-    def __init__(self, contained_widget, attrs=None):
-        self.contained_widget = contained_widget
-        if isinstance(contained_widget, type):
-            self.contained_widget = self.contained_widget()
-        if self.is_localized:
-            self.widget.is_localized = self.is_localized
-        super(ListWidget, self).__init__(attrs)
+class BaseContainerWidget(Widget):
+    def __init__(self, data_widget, attrs=None):
+        if isinstance(data_widget, type):
+            data_widget = data_widget()
+        self.data_widget = data_widget
+        self.data_widget.is_localized = self.is_localized
+        super(BaseContainerWidget, self).__init__(attrs)
+        
+    def id_for_label(self, id_):
+        # See the comment for RadioSelect.id_for_label()
+        if id_:
+            id_ += '_0'
+        return id_
+        
+    def format_output(self, rendered_widgets):
+        """
+        Given a list of rendered widgets (as strings), returns a Unicode string
+        representing the HTML for the whole lot.
 
+        This hook allows you to format the HTML design of the widgets, if
+        needed.
+        """
+        return ''.join(rendered_widgets)
+
+    def _get_media(self):
+        """
+        Media for a multiwidget is the combination of all media of
+        the subwidgets.
+        """
+        media = Media()
+        media = media + self.data_widget.media
+        return media
+    media = property(_get_media)
+    
+    def __deepcopy__(self, memo):
+        obj = super(BaseContainerWidget, self).__deepcopy__(memo)
+        obj.data_widget = copy.deepcopy(self.data_widget)
+        return obj
+
+
+class ListWidget(BaseContainerWidget):
     def render(self, name, value, attrs=None):
         if value is not None and not isinstance(value, (list, tuple)):
             raise TypeError(
@@ -41,19 +73,13 @@ class ListWidget(Widget):
         for i, widget_value in enumerate(value):
             if id_:
                 final_attrs = dict(final_attrs, id='%s_%s' % (id_, i))
-            output.append(self.contained_widget.render(
+            output.append(self.data_widget.render(
                 name + '_%s' % i, widget_value, final_attrs)
             )
         return mark_safe(self.format_output(output))
 
-    def id_for_label(self, id_):
-        # See the comment for RadioSelect.id_for_label()
-        if id_:
-            id_ += '_0'
-        return id_
-
     def value_from_datadict(self, data, files, name):
-        widget = self.contained_widget
+        widget = self.data_widget
         i = 0
         ret = []
         while (name + '_%s' % i) in data or (name + '_%s' % i) in files:
@@ -67,69 +93,12 @@ class ListWidget(Widget):
             i = i + 1
         return ret
 
-    def format_output(self, rendered_widgets):
-        """
-        Given a list of rendered widgets (as strings), returns a Unicode string
-        representing the HTML for the whole lot.
 
-        This hook allows you to format the HTML design of the widgets, if
-        needed.
-        """
-        return ''.join(rendered_widgets)
-
-    def _get_media(self):
-        """
-        Media for a multiwidget is the combination of all media of
-        the subwidgets
-        """
-        media = Media()
-        for w in self.widgets:
-            media = media + w.media
-        return media
-    media = property(_get_media)
-
-    def __deepcopy__(self, memo):
-        obj = super(ListWidget, self).__deepcopy__(memo)
-        obj.contained_widget = copy.deepcopy(self.contained_widget)
-        #obj.widget_type = copy.deepcopy(self.widget_type)
-        return obj
-
-
-class MapWidget(Widget):
-    """
-    A widget that is composed of multiple widgets.
-
-    Its render() method is different than other widgets', because it has to
-    figure out how to split a single value for display in multiple widgets.
-    The ``value`` argument can be one of two things:
-
-        * A list.
-        * A normal value (e.g., a string) that has been "compressed" from
-          a list of values.
-
-    In the second case -- i.e., if the value is NOT a list -- render() will
-    first "decompress" the value into a list before rendering it. It does so by
-    calling the decompress() method, which MultiWidget subclasses must
-    implement. This method takes a single "compressed" value and returns a
-    list.
-
-    When render() does its HTML rendering, each value in the list is rendered
-    with the corresponding widget -- the first value is rendered in the first
-    widget, the second value is rendered in the second widget, etc.
-
-    Subclasses may implement format_output(), which takes the list of rendered
-    widgets and returns a string of HTML that formats them any way you'd like.
-
-    You'll probably want to use this class with MultiValueField.
-    """
-    def __init__(self, contained_widget, attrs=None):
+class MapWidget(BaseContainerWidget):
+    def __init__(self, data_widget, attrs=None):
         self.key_widget = TextInput()
         self.key_widget.is_localized = self.is_localized
-        if isinstance(contained_widget, type):
-            contained_widget = contained_widget()
-        self.data_widget = contained_widget
-        self.data_widget.is_localized = self.is_localized
-        super(MapWidget, self).__init__(attrs)
+        super(MapWidget, self).__init__(data_widget, attrs)
 
     def render(self, name, value, attrs=None):
         if value is not None and not isinstance(value, dict):
@@ -167,12 +136,6 @@ class MapWidget(Widget):
             output.append(mark_safe(''.join(group)))
         return mark_safe(self.format_output(output))
 
-    def id_for_label(self, id_):
-        # See the comment for RadioSelect.id_for_label()
-        if id_:
-            id_ += '_0'
-        return id_
-
     def value_from_datadict(self, data, files, name):
         i = 0
         ret = {}
@@ -188,29 +151,17 @@ class MapWidget(Widget):
             i = i + 1
         return ret
 
-    def format_output(self, rendered_widgets):
-        """
-        Given a list of rendered widgets (as strings), returns a Unicode string
-        representing the HTML for the whole lot.
-
-        This hook allows you to format the HTML design of the widgets, if
-        needed.
-        """
-        return ''.join(rendered_widgets)
-
     def _get_media(self):
         """
         Media for a multiwidget is the combination of all media of
         the subwidgets.
         """
-        media = Media()
-        for w in self.widgets:
-            media = media + w.media
+        media = super(MapWidget, self)._get_media()
+        media = media + self.key_widget.media
         return media
     media = property(_get_media)
 
     def __deepcopy__(self, memo):
         obj = super(MapWidget, self).__deepcopy__(memo)
         obj.key_widget = copy.deepcopy(self.key_widget)
-        obj.data_widget = copy.deepcopy(self.data_widget)
         return obj

@@ -50,8 +50,7 @@ def load_field_generator():
 
 
 def init_document_options(document):
-    if not (isinstance(document._meta, DocumentMetaWrapper) or
-            isinstance(document._meta, LazyDocumentMetaWrapper)):
+    if not isinstance(document._meta, (DocumentMetaWrapper, LazyDocumentMetaWrapper)):
         document._meta = DocumentMetaWrapper(document)
     return document
 

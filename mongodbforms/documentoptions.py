@@ -34,7 +34,7 @@ class Relation(object):
 
     @property
     def to(self):
-        if not isinstance(self._to._meta, DocumentMetaWrapper):
+        if not isinstance(self._to._meta, (DocumentMetaWrapper, LazyDocumentMetaWrapper)):
             self._to._meta = DocumentMetaWrapper(self._to)
         return self._to
 
@@ -72,39 +72,26 @@ class LazyDocumentMetaWrapper(LazyObject):
         
     def __setattr__(self, name, value):
         if name in ["_document", "_meta",]:
-            # Assign to __dict__ to avoid infinite __setattr__ loops.
             object.__setattr__(self, name, value)
         else:
             super(LazyDocumentMetaWrapper, self).__setattr__(name, value)
     
     def __dir__(self):
-        if self._wrapped is empty: 
-            self._setup()
         return self._wrapped.__dir__()
-        
+    
     def __getitem__(self, key):
-        if self._wrapped is empty: 
-            self._setup()
         return self._wrapped.__getitem__(key)
     
     def __setitem__(self, key, value):
-        if self._wrapped is empty: 
-            self._setup()
         return self._wrapped.__getitem__(key, value)
         
     def __delitem__(self, key):
-        if self._wrapped is empty: 
-            self._setup()
         return self._wrapped.__delitem__(key)
         
     def __len__(self):
-        if self._wrapped is empty: 
-            self._setup()
         return self._wrapped.__len__()
         
     def __contains__(self, key):
-        if self._wrapped is empty: 
-            self._setup()
         return self._wrapped.__contains__(key)
         
 
@@ -185,8 +172,7 @@ class DocumentMetaWrapper(MutableMapping):
                             flat.append((choice, value))
                 f.flatchoices = flat
             if isinstance(f, ReferenceField) and not \
-                    isinstance(f.document_type._meta, DocumentMetaWrapper) and not \
-                    isinstance(f.document_type._meta, LazyDocumentMetaWrapper) and \
+                    isinstance(f.document_type._meta, (DocumentMetaWrapper, LazyDocumentMetaWrapper)) and \
                     self.document != f.document_type:
                 f.document_type._meta = LazyDocumentMetaWrapper(f.document_type)
 
@@ -221,7 +207,7 @@ class DocumentMetaWrapper(MutableMapping):
         Returns the verbose name of the document.
         
         Checks the original meta dict first. If it is not found
-        then generates a verbose name from from the object name.
+        then generates a verbose name from the object name.
         """
         if self._verbose_name is None:
             verbose_name = self._meta.get('verbose_name', self.object_name)
