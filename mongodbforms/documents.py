@@ -14,7 +14,7 @@ from django.utils.translation import ugettext_lazy as _, ugettext
 from django.utils.text import capfirst, get_valid_filename
 
 from mongoengine.fields import (ObjectIdField, ListField, ReferenceField,
-                                FileField, MapField)
+                                FileField, MapField, EmbeddedDocumentField)
 try:
     from mongoengine.base import ValidationError
 except ImportError:
@@ -25,8 +25,8 @@ from mongoengine.base import NON_FIELD_ERRORS as MONGO_NON_FIELD_ERRORS
 
 from gridfs import GridFS
 
-from .documentoptions import DocumentMetaWrapper
-from .util import (with_metaclass, load_field_generator,
+from mongodbforms.documentoptions import DocumentMetaWrapper
+from mongodbforms.util import (with_metaclass, load_field_generator,
                    format_mongo_validation_errors)
 
 _fieldgenerator = load_field_generator()
@@ -685,7 +685,8 @@ class BaseDocumentFormSet(BaseFormSet):
         return super(BaseDocumentFormSet, self).initial_form_count()
 
     def get_queryset(self):
-        return self._queryset
+        qs = self._queryset or []
+        return qs
 
     def save_object(self, form):
         obj = form.save(commit=False)
@@ -833,6 +834,9 @@ class EmbeddedDocumentFormSet(BaseDocumentFormSet):
                  prefix=None, queryset=[], parent_document=None, **kwargs):
         self.parent_document = parent_document
         
+        queryset = getattr(self.parent_document,
+                           self.form._meta.embedded_field)
+        
         super(EmbeddedDocumentFormSet, self).__init__(data, files, save_as_new,
                                                       prefix, queryset,
                                                       **kwargs)
@@ -851,6 +855,10 @@ class EmbeddedDocumentFormSet(BaseDocumentFormSet):
         form = super(EmbeddedDocumentFormSet, self)._construct_form(
             i, **defaults)
         return form
+        
+    @classmethod
+    def get_default_prefix(cls):
+        return cls.document.__name__.lower()
 
     @property
     def empty_form(self):
@@ -870,7 +878,6 @@ class EmbeddedDocumentFormSet(BaseDocumentFormSet):
         objs = objs or []
         
         if commit and self.parent_document is not None:
-            form = self.empty_form
             # The thing about formsets is that the base use case is to edit
             # *all* of the associated objects on a model. As written, using
             # these FormSets this way will cause the existing embedded
@@ -886,17 +893,51 @@ class EmbeddedDocumentFormSet(BaseDocumentFormSet):
             # rather than adding the new values to the existing values, because
             # the new values will almost always contain the old values (with
             # the default use case.)
-            setattr(self.parent_document, form._meta.embedded_field, objs)
+            setattr(self.parent_document, self.form._meta.embedded_field, objs)
             self.parent_document.save()
         
         return objs
+        
 
+def _get_embedded_field(parent_doc, document, emb_name=None, can_fail=False):
+    if emb_name:
+        emb_fields = [f for f in parent_doc._fields.values() if f.name == emb_name]
+        if len(emb_fields) == 1:
+            field = emb_fields[0]
+            if not isinstance(field, (EmbeddedDocumentField, ListField)) or \
+                    (isinstance(field, EmbeddedDocumentField) and field.document_type != document) or \
+                    (isinstance(field, ListField) and
+                     isinstance(field.field, EmbeddedDocumentField) and 
+                     field.field.document_type != document):
+                raise Exception("emb_name '%s' is not a EmbeddedDocumentField or not a ListField to %s" % (emb_name, document))
+            elif len(emb_fields) == 0:
+                raise Exception("%s has no field named '%s'" % (parent_doc, emb_name))
+    else:
+        emb_fields = [
+            f for f in parent_doc._fields.values()
+            if (isinstance(field, EmbeddedDocumentField) and field.document_type == model) or \
+            (isinstance(field, ListField) and
+             isinstance(field.field, EmbeddedDocumentField) and 
+             field.field.document_type == document)
+        ]
+        if len(emb_fields) == 1:
+            field = emb_fields[0]
+        elif len(emb_fields) == 0:
+            if can_fail:
+                return
+            raise Exception("%s has no EmbeddedDocumentField or ListField to %s" % (parent_doc, document))
+        else:
+            raise Exception("%s has more than 1 EmbeddedDocumentField to %s" % (parent_doc, document))
+            
+    return field
+    
 
 def embeddedformset_factory(document, parent_document,
                             form=EmbeddedDocumentForm,
                             formset=EmbeddedDocumentFormSet,
+                            embedded_name=None,
                             fields=None, exclude=None,
-                            extra=1, can_order=False, can_delete=True,
+                            extra=3, can_order=False, can_delete=True,
                             max_num=None, formfield_callback=None):
     """
     Returns an ``InlineFormSet`` for the given kwargs.
@@ -904,6 +945,9 @@ def embeddedformset_factory(document, parent_document,
     You must provide ``fk_name`` if ``model`` has more than one ``ForeignKey``
     to ``parent_model``.
     """
+    emb_field = _get_embedded_field(parent_document, document, emb_name=embedded_name)
+    if isinstance(emb_field, EmbeddedDocumentField):
+        max_num = 1
     kwargs = {
         'form': form,
         'formfield_callback': formfield_callback,
@@ -916,4 +960,5 @@ def embeddedformset_factory(document, parent_document,
         'max_num': max_num,
     }
     FormSet = documentformset_factory(document, **kwargs)
+    FormSet.form._meta.embedded_field = emb_field.name
     return FormSet

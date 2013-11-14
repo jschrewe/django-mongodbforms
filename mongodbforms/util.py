@@ -3,7 +3,7 @@ from collections import defaultdict
 from django.conf import settings
 
 from mongodbforms.documentoptions import DocumentMetaWrapper, LazyDocumentMetaWrapper
-from .fieldgenerator import MongoDefaultFormFieldGenerator
+from mongodbforms.fieldgenerator import MongoDefaultFormFieldGenerator
 
 try:
     from django.utils.module_loading import import_by_path

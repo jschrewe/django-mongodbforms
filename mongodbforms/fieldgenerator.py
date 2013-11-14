@@ -26,8 +26,8 @@ from mongodbforms.fields import (MongoCharField, MongoEmailField,
                                  MongoURLField, ReferenceField,
                                  DocumentMultipleChoiceField, ListField,
                                  MapField)
-from .widgets import Html5SplitDateTimeWidget
-from .documentoptions import create_verbose_name
+from mongodbforms.widgets import Html5SplitDateTimeWidget
+from mongodbforms.documentoptions import create_verbose_name
 
 BLANK_CHOICE_DASH = [("", "---------")]
 
