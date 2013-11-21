@@ -44,6 +44,9 @@ class Relation(object):
 
 
 class PkWrapper(object):
+    editable = False
+    fake = False
+    
     def __init__(self, wrapped):
         self.obj = wrapped
 
@@ -118,6 +121,8 @@ class DocumentMetaWrapper(MutableMapping):
     _meta = None
     concrete_model = None
     concrete_managers = []
+    virtual_fields = []
+    auto_created = False
 
     def __init__(self, document, meta=None):
         super(DocumentMetaWrapper, self).__init__()
@@ -127,9 +132,10 @@ class DocumentMetaWrapper(MutableMapping):
         # here for now always the document
         self.concrete_model = document
         if meta is None:
-            self._meta = getattr(document, '_meta', {})
-        else:
-            self._meta = meta
+            meta = getattr(document, '_meta', {})
+            if isinstance(meta, LazyDocumentMetaWrapper):
+                meta = meta._meta
+        self._meta = meta
 
         try:
             self.object_name = self.document.__name__
@@ -143,9 +149,9 @@ class DocumentMetaWrapper(MutableMapping):
         self._setup_document_fields()
         # Setup self.pk if the document has an id_field in it's meta
         # if it doesn't have one it's an embedded document
-        if 'id_field' in self._meta:
-            self.pk_name = self._meta['id_field']
-            self._init_pk()
+        #if 'id_field' in self._meta:
+        #    self.pk_name = self._meta['id_field']
+        self._init_pk()
 
     def _setup_document_fields(self):
         for f in self.document._fields.values():
@@ -183,16 +189,27 @@ class DocumentMetaWrapper(MutableMapping):
 
         The function also adds a _get_pk_val method to the document.
         """
-        pk_field = getattr(self.document, self.pk_name)
+        if 'id_field' in self._meta:
+            self.pk_name = self._meta['id_field']
+            pk_field = getattr(self.document, self.pk_name)
+        else:
+            pk_field = None
         self.pk = PkWrapper(pk_field)
-        self.pk.name = self.pk_name
-        self.pk.attname = self.pk_name
-
-        self.document._pk_val = pk_field
 
         def _get_pk_val(self):
             return self._pk_val
-        patch_document(_get_pk_val, self.document)
+        
+        if pk_field is not None:
+            self.pk.name = self.pk_name
+            self.pk.attname = self.pk_name
+            self.document._pk_val = pk_field
+            patch_document(_get_pk_val, self.document)
+        else:
+            self.pk.fake = True
+            # this is used in the admin and used to determine if the admin
+            # needs to add a hidden pk field. It does not for embedded fields.
+            # So we pretend to have an editable pk field and just ignore it otherwise
+            self.pk.editable = True
     
     @property
     def app_label(self):

@@ -832,7 +832,13 @@ def inlineformset_factory(document, form=DocumentForm,
 class EmbeddedDocumentFormSet(BaseDocumentFormSet):
     def __init__(self, data=None, files=None, save_as_new=False,
                  prefix=None, queryset=[], parent_document=None, **kwargs):
-        self.parent_document = parent_document
+        if parent_document is not None:
+            self.parent_document = parent_document
+            
+        if 'instance' in kwargs:
+            instance = kwargs.pop('instance')
+            if parent_document is None:
+                self.parent_document = instance
         
         queryset = getattr(self.parent_document,
                            self.form._meta.embedded_field)
@@ -848,7 +854,8 @@ class EmbeddedDocumentFormSet(BaseDocumentFormSet):
         # a huge amount of time iterating over the list field on form __init__
         emb_list = getattr(self.parent_document,
                            self.form._meta.embedded_field)
-        if emb_list is not None and len(emb_list) < i:
+                           
+        if emb_list is not None and len(emb_list) > i:
             defaults['position'] = i
         defaults.update(kwargs)
         
@@ -878,22 +885,15 @@ class EmbeddedDocumentFormSet(BaseDocumentFormSet):
         objs = objs or []
         
         if commit and self.parent_document is not None:
-            # The thing about formsets is that the base use case is to edit
-            # *all* of the associated objects on a model. As written, using
-            # these FormSets this way will cause the existing embedded
-            # documents to get saved along with a copy of themselves plus any
-            # new ones you added.
-            #
-            # The only way you could do "updates" of existing embedded document
-            # fields is if those embedded documents had ObjectIDs of their own,
-            # which they don't by default in Mongoengine.
-            #
-            # In this case it makes the most sense to simply replace the
-            # embedded field with the new values gathered form the formset,
-            # rather than adding the new values to the existing values, because
-            # the new values will almost always contain the old values (with
-            # the default use case.)
-            setattr(self.parent_document, self.form._meta.embedded_field, objs)
+            field = self.parent_document._fields.get(self.form._meta.embedded_field, None)
+            if isinstance(field, EmbeddedDocumentField):
+                try:
+                    obj = objs[0]
+                except IndexError:
+                    obj = None
+                setattr(self.parent_document, self.form._meta.embedded_field, obj)
+            else:
+                setattr(self.parent_document, self.form._meta.embedded_field, objs)
             self.parent_document.save()
         
         return objs
