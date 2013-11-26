@@ -20,6 +20,7 @@ try:
 except ImportError:
     from mongoengine.errors import ValidationError
 from mongoengine.queryset import OperationError, Q
+from mongoengine.queryset.base import BaseQuerySet
 from mongoengine.connection import get_db, DEFAULT_CONNECTION_NAME
 from mongoengine.base import NON_FIELD_ERRORS as MONGO_NON_FIELD_ERRORS
 
@@ -661,6 +662,8 @@ class BaseDocumentFormSet(BaseFormSet):
 
     def __init__(self, data=None, files=None, auto_id='id_%s', prefix=None,
                  queryset=None, **kwargs):
+        if not isinstance(queryset, (list, BaseQuerySet)):
+            queryset = [queryset]
         self.queryset = queryset
         self._queryset = self.queryset
         self.initial = self.construct_initial()

@@ -34,7 +34,7 @@ except ImportError:
     from pymongo.objectid import ObjectId
     from pymongo.errors import InvalidId
     
-from mongodbforms.widgets import ListWidget, MapWidget
+from mongodbforms.widgets import ListWidget, MapWidget, HiddenMapWidget
 
 
 class MongoChoiceIterator(object):
@@ -285,11 +285,11 @@ class MapField(forms.Field):
         'key_required': _('A key is required.'),
     }
     widget = MapWidget
+    hidden_widget = HiddenMapWidget
 
     def __init__(self, contained_field, max_key_length=None,
                  min_key_length=None, key_validators=[], field_kwargs={},
                  *args, **kwargs):
-                 
         if 'widget' in kwargs:
             self.widget = kwargs.pop('widget')
         

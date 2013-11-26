@@ -2,7 +2,7 @@ import copy
 
 from django.forms.widgets import (Widget, Media, TextInput,
                                   SplitDateTimeWidget, DateInput, TimeInput,
-                                  MultiWidget)
+                                  MultiWidget, HiddenInput)
 from django.utils.safestring import mark_safe
 from django.core.validators import EMPTY_VALUES
 from django.forms.util import flatatt
@@ -118,7 +118,8 @@ class MapWidget(BaseContainerWidget):
                     final_attrs, id='fieldset_%s_%s' % (id_, i)
                 )
             group = []
-            group.append(mark_safe('<fieldset %s>' % flatatt(fieldset_attr)))
+            if not self.is_hidden:
+                group.append(mark_safe('<fieldset %s>' % flatatt(fieldset_attr)))
             
             if id_:
                 final_attrs = dict(final_attrs, id='%s_key_%s' % (id_, i))
@@ -131,7 +132,8 @@ class MapWidget(BaseContainerWidget):
             group.append(self.data_widget.render(
                 name + '_value_%s' % i, widget_value, final_attrs)
             )
-            group.append(mark_safe('</fieldset>'))
+            if not self.is_hidden:
+                group.append(mark_safe('</fieldset>'))
             
             output.append(mark_safe(''.join(group)))
         return mark_safe(self.format_output(output))
@@ -165,3 +167,12 @@ class MapWidget(BaseContainerWidget):
         obj = super(MapWidget, self).__deepcopy__(memo)
         obj.key_widget = copy.deepcopy(self.key_widget)
         return obj
+
+        
+class HiddenMapWidget(MapWidget):
+    is_hidden = True
+    
+    def __init__(self, attrs=None):
+        data_widget = HiddenInput()
+        super(MapWidget, self).__init__(data_widget, attrs)
+        self.key_widget = HiddenInput()
