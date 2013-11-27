@@ -28,10 +28,8 @@ from django.forms.util import ErrorList
 from django.core.exceptions import ValidationError
 
 try:  # objectid was moved into bson in pymongo 1.9
-    from bson.objectid import ObjectId
     from bson.errors import InvalidId
 except ImportError:
-    from pymongo.objectid import ObjectId
     from pymongo.errors import InvalidId
     
 from mongodbforms.widgets import ListWidget, MapWidget, HiddenMapWidget

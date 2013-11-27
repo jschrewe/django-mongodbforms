@@ -27,8 +27,7 @@ from mongoengine.base import NON_FIELD_ERRORS as MONGO_NON_FIELD_ERRORS
 from gridfs import GridFS
 
 from mongodbforms.documentoptions import DocumentMetaWrapper
-from mongodbforms.util import (with_metaclass, load_field_generator,
-                   format_mongo_validation_errors)
+from mongodbforms.util import with_metaclass, load_field_generator
 
 _fieldgenerator = load_field_generator()
 
@@ -918,7 +917,7 @@ def _get_embedded_field(parent_doc, document, emb_name=None, can_fail=False):
     else:
         emb_fields = [
             f for f in parent_doc._fields.values()
-            if (isinstance(field, EmbeddedDocumentField) and field.document_type == model) or \
+            if (isinstance(field, EmbeddedDocumentField) and field.document_type == document) or \
             (isinstance(field, ListField) and
              isinstance(field.field, EmbeddedDocumentField) and 
              field.field.document_type == document)
