@@ -5,7 +5,7 @@ from types import MethodType
 from django.db.models.fields import FieldDoesNotExist
 from django.utils.text import capfirst
 from django.db.models.options import get_verbose_name
-from django.utils.functional import LazyObject
+from django.utils.functional import LazyObject, new_method_proxy
 from django.conf import settings
 
 from mongoengine.fields import ReferenceField, ListField
@@ -65,40 +65,28 @@ class PkWrapper(object):
 class LazyDocumentMetaWrapper(LazyObject):
     _document = None
     _meta = None
-    
+
     def __init__(self, document):
         self._document = document
         self._meta = document._meta
         super(LazyDocumentMetaWrapper, self).__init__()
-        
+
     def _setup(self):
         self._wrapped = DocumentMetaWrapper(self._document, self._meta)
-        
+
     def __setattr__(self, name, value):
         if name in ["_document", "_meta",]:
             object.__setattr__(self, name, value)
         else:
             super(LazyDocumentMetaWrapper, self).__setattr__(name, value)
-    
-    def __dir__(self):
-        return self._wrapped.__dir__()
-    
-    def __getitem__(self, key):
-        return self._wrapped.__getitem__(key)
-    
-    def __setitem__(self, key, value):
-        return self._wrapped.__getitem__(key, value)
-        
-    def __delitem__(self, key):
-        return self._wrapped.__delitem__(key)
-        
-    def __len__(self):
-        return self._wrapped.__len__()
-        
-    def __contains__(self, key):
-        return self._wrapped.__contains__(key)
-        
 
+    __len__ = new_method_proxy(len)
+
+    @new_method_proxy
+    def __contains__(self, key):
+        return key in self
+
+        
 class DocumentMetaWrapper(MutableMapping):
     """
     Used to store mongoengine's _meta dict to make the document admin
