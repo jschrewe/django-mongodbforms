@@ -215,8 +215,11 @@ class DocumentMetaWrapper(MutableMapping):
     @property
     def app_label(self):
         if self._app_label is None:
-            model_module = sys.modules[self.document.__module__]
-            self._app_label = model_module.__name__.split('.')[-2]
+            if self._meta.get('app_label'):
+                self._app_label = self._meta["app_label"]
+            else:
+                model_module = sys.modules[self.document.__module__]
+                self._app_label = model_module.__name__.split('.')[-2]
         return self._app_label
             
     @property
