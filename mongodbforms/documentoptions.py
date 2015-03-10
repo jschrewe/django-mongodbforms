@@ -4,7 +4,14 @@ from types import MethodType
 
 from django.db.models.fields import FieldDoesNotExist
 from django.utils.text import capfirst
-from django.db.models.options import get_verbose_name
+
+try:
+    # New in Django 1.7+
+    from django.utils.text import camel_case_to_spaces
+except ImportError:
+    # Backwards compatibility
+    from django.db.models.options import get_verbose_name as camel_case_to_spaces
+
 from django.utils.functional import LazyObject
 from django.conf import settings
 
@@ -20,7 +27,7 @@ def patch_document(function, instance, bound=True):
 
 
 def create_verbose_name(name):
-    name = get_verbose_name(name)
+    name = camel_case_to_spaces(name)
     name = name.replace('_', ' ')
     return name
 
