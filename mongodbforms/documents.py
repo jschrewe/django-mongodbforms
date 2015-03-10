@@ -283,6 +283,9 @@ class ModelFormOptions(object):
         
         self._dont_save = []
         
+        self.labels = False
+        self.help_texts = False
+
         
 class DocumentFormMetaclass(type):
     def __new__(cls, name, bases, attrs):
