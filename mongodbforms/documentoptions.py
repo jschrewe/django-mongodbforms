@@ -131,7 +131,6 @@ class DocumentMetaWrapper(MutableMapping):
     concrete_managers = []
     virtual_fields = []
     auto_created = False
-    _deferred = False
 
     def __init__(self, document, meta=None):
         super(DocumentMetaWrapper, self).__init__()
