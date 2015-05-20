@@ -54,6 +54,8 @@ def init_document_options(document):
         document._meta = DocumentMetaWrapper(document)
     # Workaround for Django 1.7+
     document._deferred = False
+    # FIXME: Wrong implementation for Relations (https://github.com/django/django/blob/master/django/db/models/base.py#L601)
+    document.serializable_value = lambda self, field_name: self._meta.get_field(field_name)
     return document
 
 

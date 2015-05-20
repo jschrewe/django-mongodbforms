@@ -122,6 +122,7 @@ class DocumentMetaWrapper(MutableMapping):
     has_auto_field = False
     object_name = None
     proxy = []
+    proxied_children = []
     parents = {}
     many_to_many = []
     _field_cache = None
@@ -168,13 +169,21 @@ class DocumentMetaWrapper(MutableMapping):
             if not hasattr(f, 'rel'):
                 # need a bit more for actual reference fields here
                 if isinstance(f, ReferenceField):
+                    # FIXME: Probably broken in Django 1.7
                     f.rel = Relation(f.document_type)
                     f.is_relation = True
-                elif isinstance(f, ListField) and \
-                        isinstance(f.field, ReferenceField):
+                elif isinstance(f, ListField) and isinstance(f.field, ReferenceField):
+                    # FIXME: Probably broken in Django 1.7
                     f.field.rel = Relation(f.field.document_type)
                     f.field.is_relation = True
                 else:
+                    f.many_to_many = None
+                    f.many_to_one = None
+                    f.one_to_many = None
+                    f.one_to_one = None
+                    f.related_model = None
+
+                    # FIXME: No longer used in Django 1.7?
                     f.rel = None
                     f.is_relation = False
             if not hasattr(f, 'verbose_name') or f.verbose_name is None:
@@ -192,6 +201,8 @@ class DocumentMetaWrapper(MutableMapping):
                     isinstance(f.document_type._meta, (DocumentMetaWrapper, LazyDocumentMetaWrapper)) and \
                     self.document != f.document_type:
                 f.document_type._meta = LazyDocumentMetaWrapper(f.document_type)
+            if not hasattr(f, 'auto_created'):
+                f.auto_created = False
 
     def _init_pk(self):
         """
@@ -291,6 +302,9 @@ class DocumentMetaWrapper(MutableMapping):
         """
         return self.get_field_by_name(name)[0]
 
+    def get_fields(self, include_hidden=False):
+        return self.document._fields.values()
+
     @property
     def swapped(self):
         """
@@ -354,6 +368,12 @@ class DocumentMetaWrapper(MutableMapping):
 
     def __len__(self):
         return self._meta.__len__()
+
+    def __cmp__(self, other):
+        return hash(self) == hash(other)
+
+    def __hash__(self):
+        return id(self)
 
     def get(self, key, default=None):
         try:
