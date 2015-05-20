@@ -218,14 +218,14 @@ class DocumentMetaWrapper(MutableMapping):
             pk_field = None
         self.pk = PkWrapper(pk_field)
 
-        def _get_pk_val(self):
-            return self._pk_val
+        def _get_pk_val(obj):
+            return obj.pk
+
+        patch_document(_get_pk_val, self.document, False)  # document is a class...
 
         if pk_field is not None:
             self.pk.name = self.pk_name
             self.pk.attname = self.pk_name
-            self.document._pk_val = pk_field
-            patch_document(_get_pk_val, self.document)
         else:
             self.pk.fake = True
             # this is used in the admin and used to determine if the admin
