@@ -3,7 +3,7 @@ import itertools
 from collections import Callable, OrderedDict
 from functools import reduce
 
-from django.forms.forms import (BaseForm, get_declared_fields,
+from django.forms.forms import (BaseForm, DeclarativeFieldsMetaclass,
                                 NON_FIELD_ERRORS, pretty_name)
 from django.forms.widgets import media_property
 from django.core.exceptions import FieldError
@@ -87,7 +87,7 @@ def construct_instance(form, instance, fields=None, exclude=None):
     for f in instance._fields.values():
         if isinstance(f, ObjectIdField):
             continue
-        if not f.name in cleaned_data:
+        if f.name not in cleaned_data:
             continue
         if fields is not None and f.name not in fields:
             continue
@@ -176,14 +176,14 @@ def save_instance(form, instance, fields=None, fail_message='saved',
 
     if commit and hasattr(instance, 'save'):
         # see BaseDocumentForm._post_clean for an explanation
-        #if len(form._meta._dont_save) > 0:
+        # if len(form._meta._dont_save) > 0:
         #    data = instance._data
         #    new_data = dict([(n, f) for n, f in data.items() if not n \
         #                    in form._meta._dont_save])
         #    instance._data = new_data
         #    instance.save()
         #    instance._data = data
-        #else:
+        # else:
         instance.save()
     return instance
 
@@ -202,7 +202,7 @@ def document_to_dict(instance, fields=None, exclude=None):
     """
     data = {}
     for f in instance._fields.values():
-        if fields and not f.name in fields:
+        if fields and f.name not in fields:
             continue
         if exclude and f.name in exclude:
             continue
@@ -234,7 +234,7 @@ def fields_for_document(document, fields=None, exclude=None, widgets=None,
         f = document._fields.get(name)
         if isinstance(f, ObjectIdField):
             continue
-        if fields and not f.name in fields:
+        if fields and f.name not in fields:
             continue
         if exclude and f.name in exclude:
             continue
@@ -262,6 +262,7 @@ def fields_for_document(document, fields=None, exclude=None, widgets=None,
 
 
 class ModelFormOptions(object):
+
     def __init__(self, options=None):
         # document class can be declared with 'document =' or 'model ='
         self.document = getattr(options, 'document', None)
@@ -287,7 +288,7 @@ class ModelFormOptions(object):
         self.help_texts = getattr(options, 'help_texts', None)
 
 
-class DocumentFormMetaclass(type):
+class DocumentFormMetaclass(DeclarativeFieldsMetaclass):
     def __new__(cls, name, bases, attrs):
         formfield_callback = attrs.pop('formfield_callback', None)
         try:
@@ -299,7 +300,6 @@ class DocumentFormMetaclass(type):
         except NameError:
             # We are defining DocumentForm itself.
             parents = None
-        declared_fields = get_declared_fields(bases, attrs, False)
         new_class = super(DocumentFormMetaclass, cls).__new__(cls, name,
                                                               bases, attrs)
         if not parents:
@@ -324,7 +324,7 @@ class DocumentFormMetaclass(type):
             # make sure opts.fields doesn't specify an invalid field
             none_document_fields = [k for k, v in fields.items() if not v]
             missing_fields = (set(none_document_fields) -
-                              set(declared_fields.keys()))
+                              set(new_class.declared_fields.keys()))
             if missing_fields:
                 message = 'Unknown field(s) (%s) specified for %s'
                 message = message % (', '.join(missing_fields),
@@ -332,16 +332,16 @@ class DocumentFormMetaclass(type):
                 raise FieldError(message)
             # Override default model fields with any custom declared ones
             # (plus, include all the other declared fields).
-            fields.update(declared_fields)
+            fields.update(new_class.declared_fields)
         else:
-            fields = declared_fields
+            fields = new_class.declared_fields
 
-        new_class.declared_fields = declared_fields
         new_class.base_fields = fields
         return new_class
 
 
 class BaseDocumentForm(BaseForm):
+
     def __init__(self, data=None, files=None, auto_id='id_%s', prefix=None,
                  initial=None, error_class=ErrorList, label_suffix=':',
                  empty_permitted=False, instance=None):
@@ -445,7 +445,7 @@ class BaseDocumentForm(BaseForm):
                     # that are not required. Clean them up here, though
                     # this is maybe not the right place :-)
                     setattr(self.instance, f.name, None)
-                    #opts._dont_save.append(f.name)
+                    # opts._dont_save.append(f.name)
         except ValidationError as e:
             err = {f.name: [e.message]}
             self._update_errors(err)
@@ -582,10 +582,11 @@ def documentform_factory(document, form=DocumentForm, fields=None,
 
 class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass,
                                           BaseDocumentForm)):
+
     def __init__(self, parent_document, data=None, files=None, position=None,
                  *args, **kwargs):
-        if self._meta.embedded_field is not None and not \
-                self._meta.embedded_field in parent_document._fields:
+        if self._meta.embedded_field is not None and \
+                self._meta.embedded_field not in parent_document._fields:
             raise FieldError("Parent document must have field %s" %
                              self._meta.embedded_field)
 
@@ -658,16 +659,17 @@ class EmbeddedDocumentForm(with_metaclass(DocumentFormMetaclass,
 
 
 class BaseDocumentFormSet(BaseFormSet):
+
     """
     A ``FormSet`` for editing a queryset and/or adding new objects to it.
     """
 
     def __init__(self, data=None, files=None, auto_id='id_%s', prefix=None,
-                 queryset=None, **kwargs):
+                 queryset=[], **kwargs):
+
         if not isinstance(queryset, (list, BaseQuerySet)):
             queryset = [queryset]
         self.queryset = queryset
-        self._queryset = self.queryset
         self.initial = self.construct_initial()
         defaults = {'data': data, 'files': files, 'auto_id': auto_id,
                     'prefix': prefix, 'initial': self.initial}
@@ -690,7 +692,7 @@ class BaseDocumentFormSet(BaseFormSet):
         return super(BaseDocumentFormSet, self).initial_form_count()
 
     def get_queryset(self):
-        qs = self._queryset or []
+        qs = self.queryset or []
         return qs
 
     def save_object(self, form):
@@ -704,7 +706,7 @@ class BaseDocumentFormSet(BaseFormSet):
         """
         saved = []
         for form in self.forms:
-            if not form.has_changed() and not form in self.initial_forms:
+            if not form.has_changed() and form not in self.initial_forms:
                 continue
             obj = self.save_object(form)
             if form.cleaned_data.get("DELETE", False):
@@ -764,11 +766,13 @@ def documentformset_factory(document, form=DocumentForm,
 
 
 class BaseInlineDocumentFormSet(BaseDocumentFormSet):
+
     """
     A formset for child objects related to a parent.
 
     self.instance -> the document containing the inline objects
     """
+
     def __init__(self, data=None, files=None, instance=None,
                  save_as_new=False, prefix=None, queryset=[], **kwargs):
         self.instance = instance
@@ -784,7 +788,7 @@ class BaseInlineDocumentFormSet(BaseDocumentFormSet):
             return 0
         return super(BaseInlineDocumentFormSet, self).initial_form_count()
 
-    #@classmethod
+    # @classmethod
     def get_default_prefix(cls):
         return cls.document.__name__.lower()
     get_default_prefix = classmethod(get_default_prefix)
@@ -797,7 +801,7 @@ class BaseInlineDocumentFormSet(BaseDocumentFormSet):
         if form._meta.fields:
             if isinstance(form._meta.fields, tuple):
                 form._meta.fields = list(form._meta.fields)
-            #form._meta.fields.append(self.fk.name)
+            # form._meta.fields.append(self.fk.name)
 
     def get_unique_error_message(self, unique_check):
         unique_check = [
@@ -835,6 +839,7 @@ def inlineformset_factory(document, form=DocumentForm,
 
 
 class EmbeddedDocumentFormSet(BaseDocumentFormSet):
+
     def __init__(self, data=None, files=None, save_as_new=False,
                  prefix=None, queryset=[], parent_document=None, **kwargs):
         if parent_document is not None:
@@ -890,15 +895,18 @@ class EmbeddedDocumentFormSet(BaseDocumentFormSet):
         objs = objs or []
 
         if commit and self.parent_document is not None:
-            field = self.parent_document._fields.get(self.form._meta.embedded_field, None)
+            field = self.parent_document._fields.get(
+                self.form._meta.embedded_field, None)
             if isinstance(field, EmbeddedDocumentField):
                 try:
                     obj = objs[0]
                 except IndexError:
                     obj = None
-                setattr(self.parent_document, self.form._meta.embedded_field, obj)
+                setattr(
+                    self.parent_document, self.form._meta.embedded_field, obj)
             else:
-                setattr(self.parent_document, self.form._meta.embedded_field, objs)
+                setattr(
+                    self.parent_document, self.form._meta.embedded_field, objs)
             self.parent_document.save()
 
         return objs
@@ -906,33 +914,43 @@ class EmbeddedDocumentFormSet(BaseDocumentFormSet):
 
 def _get_embedded_field(parent_doc, document, emb_name=None, can_fail=False):
     if emb_name:
-        emb_fields = [f for f in parent_doc._fields.values() if f.name == emb_name]
+        emb_fields = [
+            f for f in parent_doc._fields.values() if f.name == emb_name]
         if len(emb_fields) == 1:
             field = emb_fields[0]
             if not isinstance(field, (EmbeddedDocumentField, ListField)) or \
-                    (isinstance(field, EmbeddedDocumentField) and field.document_type != document) or \
-                    (isinstance(field, ListField) and
-                     isinstance(field.field, EmbeddedDocumentField) and
-                     field.field.document_type != document):
-                raise Exception("emb_name '%s' is not a EmbeddedDocumentField or not a ListField to %s" % (emb_name, document))
+                (isinstance(field, EmbeddedDocumentField) and
+                    field.document_type != document) or \
+                (isinstance(field, ListField) and
+                    isinstance(field.field, EmbeddedDocumentField) and
+                    field.field.document_type != document):
+                raise Exception(
+                    "emb_name '%s' is not a EmbeddedDocumentField or not a ListField to %s" % (
+                        emb_name, document
+                    )
+                )
             elif len(emb_fields) == 0:
-                raise Exception("%s has no field named '%s'" % (parent_doc, emb_name))
+                raise Exception("%s has no field named '%s'" %
+                                (parent_doc, emb_name))
     else:
         emb_fields = [
             f for f in parent_doc._fields.values()
-            if (isinstance(field, EmbeddedDocumentField) and field.document_type == document) or \
-            (isinstance(field, ListField) and
-             isinstance(field.field, EmbeddedDocumentField) and
-             field.field.document_type == document)
+            if (isinstance(field, EmbeddedDocumentField) and
+                field.document_type == document) or
+               (isinstance(field, ListField) and
+                isinstance(field.field, EmbeddedDocumentField) and
+                field.field.document_type == document)
         ]
         if len(emb_fields) == 1:
             field = emb_fields[0]
         elif len(emb_fields) == 0:
             if can_fail:
                 return
-            raise Exception("%s has no EmbeddedDocumentField or ListField to %s" % (parent_doc, document))
+            raise Exception(
+                "%s has no EmbeddedDocumentField or ListField to %s" % (parent_doc, document))
         else:
-            raise Exception("%s has more than 1 EmbeddedDocumentField to %s" % (parent_doc, document))
+            raise Exception(
+                "%s has more than 1 EmbeddedDocumentField to %s" % (parent_doc, document))
 
     return field
 
@@ -950,7 +968,8 @@ def embeddedformset_factory(document, parent_document,
     You must provide ``fk_name`` if ``model`` has more than one ``ForeignKey``
     to ``parent_model``.
     """
-    emb_field = _get_embedded_field(parent_document, document, emb_name=embedded_name)
+    emb_field = _get_embedded_field(
+        parent_document, document, emb_name=embedded_name)
     if isinstance(emb_field, EmbeddedDocumentField):
         max_num = 1
     kwargs = {
