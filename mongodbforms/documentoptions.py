@@ -4,7 +4,7 @@ from types import MethodType
 
 from django.db.models.fields import FieldDoesNotExist
 from django.utils.text import capfirst
-from django.utils.functional import LazyObject
+from django.utils.functional import LazyObject, new_method_proxy
 from django.conf import settings
 try:
     from django.db.models.options import get_verbose_name
@@ -50,7 +50,7 @@ class Relation(object):
 class PkWrapper(object):
     editable = False
     fake = False
-    
+
     def __init__(self, wrapped):
         self.obj = wrapped
 
@@ -68,39 +68,27 @@ class PkWrapper(object):
 class LazyDocumentMetaWrapper(LazyObject):
     _document = None
     _meta = None
-    
+
     def __init__(self, document):
         self._document = document
         self._meta = document._meta
         super(LazyDocumentMetaWrapper, self).__init__()
-        
+
     def _setup(self):
         self._wrapped = DocumentMetaWrapper(self._document, self._meta)
-        
+
     def __setattr__(self, name, value):
-        if name in ["_document", "_meta",]:
+        if name in ["_document", "_meta", ]:
             object.__setattr__(self, name, value)
         else:
             super(LazyDocumentMetaWrapper, self).__setattr__(name, value)
-    
-    def __dir__(self):
-        return self._wrapped.__dir__()
-    
-    def __getitem__(self, key):
-        return self._wrapped.__getitem__(key)
-    
-    def __setitem__(self, key, value):
-        return self._wrapped.__getitem__(key, value)
-        
-    def __delitem__(self, key):
-        return self._wrapped.__delitem__(key)
-        
-    def __len__(self):
-        return self._wrapped.__len__()
-        
+
+    __len__ = new_method_proxy(len)
+
+    @new_method_proxy
     def __contains__(self, key):
-        return self._wrapped.__contains__(key)
-        
+        return key in self
+
 
 class DocumentMetaWrapper(MutableMapping):
     """
@@ -153,7 +141,7 @@ class DocumentMetaWrapper(MutableMapping):
         self._setup_document_fields()
         # Setup self.pk if the document has an id_field in it's meta
         # if it doesn't have one it's an embedded document
-        #if 'id_field' in self._meta:
+        # if 'id_field' in self._meta:
         #    self.pk_name = self._meta['id_field']
         self._init_pk()
 
@@ -202,7 +190,7 @@ class DocumentMetaWrapper(MutableMapping):
 
         def _get_pk_val(self):
             return self._pk_val
-        
+
         if pk_field is not None:
             self.pk.name = self.pk_name
             self.pk.attname = self.pk_name
@@ -214,19 +202,19 @@ class DocumentMetaWrapper(MutableMapping):
             # needs to add a hidden pk field. It does not for embedded fields.
             # So we pretend to have an editable pk field and just ignore it otherwise
             self.pk.editable = True
-    
+
     @property
     def app_label(self):
         if self._app_label is None:
             model_module = sys.modules[self.document.__module__]
             self._app_label = model_module.__name__.split('.')[-2]
         return self._app_label
-            
+
     @property
     def verbose_name(self):
         """
         Returns the verbose name of the document.
-        
+
         Checks the original meta dict first. If it is not found
         then generates a verbose name from the object name.
         """
@@ -234,15 +222,15 @@ class DocumentMetaWrapper(MutableMapping):
             verbose_name = self._meta.get('verbose_name', self.object_name)
             self._verbose_name = capfirst(create_verbose_name(verbose_name))
         return self._verbose_name
-    
+
     @property
     def verbose_name_raw(self):
         return self.verbose_name
-    
+
     @property
     def verbose_name_plural(self):
         return "%ss" % self.verbose_name
-                
+
     def get_add_permission(self):
         return 'add_%s' % self.object_name.lower()
 
@@ -251,10 +239,10 @@ class DocumentMetaWrapper(MutableMapping):
 
     def get_delete_permission(self):
         return 'delete_%s' % self.object_name.lower()
-    
+
     def get_ordered_objects(self):
         return []
-    
+
     def get_field_by_name(self, name):
         """
         Returns the (field_object, model, direct, m2m), where field_object is
@@ -274,13 +262,13 @@ class DocumentMetaWrapper(MutableMapping):
         else:
             raise FieldDoesNotExist('%s has no field named %r' %
                                     (self.object_name, name))
-         
+
     def get_field(self, name, many_to_many=True):
         """
         Returns the requested field by name. Raises FieldDoesNotExist on error.
         """
         return self.get_field_by_name(name)[0]
-    
+
     @property
     def swapped(self):
         """
@@ -289,7 +277,7 @@ class DocumentMetaWrapper(MutableMapping):
 
         For historical reasons, model name lookups using get_model() are
         case insensitive, so we make sure we are case insensitive here.
-        
+
         NOTE: Not sure this is actually usefull for documents. So at the
         moment it's really only here because the admin wants it. It might
         prove usefull for someone though, so it's more then just a dummy.
@@ -311,28 +299,28 @@ class DocumentMetaWrapper(MutableMapping):
                         not in (None, model_label):
                     return swapped_for
         return None
-    
+
     def __getattr__(self, name):
         if name in self._deprecated_attrs:
             return getattr(self, self._deprecated_attrs.get(name))
-            
+
         try:
             return self._meta[name]
         except KeyError:
             raise AttributeError
-                    
+
     def __setattr__(self, name, value):
         if not hasattr(self, name):
             self._meta[name] = value
         else:
             super(DocumentMetaWrapper, self).__setattr__(name, value)
-    
+
     def __contains__(self, key):
         return key in self._meta
-    
+
     def __getitem__(self, key):
         return self._meta[key]
-    
+
     def __setitem__(self, key, value):
         self._meta[key] = value
 
@@ -350,10 +338,10 @@ class DocumentMetaWrapper(MutableMapping):
             return self.__getitem__(key)
         except KeyError:
             return default
-    
+
     def get_parent_list(self):
         return []
-    
+
     def get_all_related_objects(self, *args, **kwargs):
         return []
 
