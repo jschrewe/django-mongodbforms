@@ -7,7 +7,7 @@ Wilson Júnior (wilsonpjunior@gmail.com).
 import collections
 
 from django import forms
-from django.core.validators import EMPTY_VALUES
+from django.core.validators import EMPTY_VALUES, RegexValidator
 try:
     from django.utils.encoding import smart_text as smart_unicode
 except ImportError:
@@ -180,7 +180,7 @@ class MongoFormFieldGenerator(object):
                 'min_length': field.min_length,
             })
             if field.regex:
-                defaults['regex'] = field.regex
+                defaults['validators'] = [RegexValidator(regex=field.regex)]
             
         form_class = self.form_field_map.get(map_key)
         defaults.update(self.check_widget(map_key))
