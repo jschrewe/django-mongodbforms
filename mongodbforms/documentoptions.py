@@ -5,12 +5,13 @@ from types import MethodType
 from django.db.models.fields import FieldDoesNotExist
 from django.utils.text import capfirst
 from django.utils.functional import LazyObject, new_method_proxy
-from django.conf import settings
 try:
-    from django.db.models.options import get_verbose_name
+    # New in Django 1.7+
+    from django.utils.text import camel_case_to_spaces
 except ImportError:
-    from django.utils.text import camel_case_to_spaces as get_verbose_name
-
+    # Backwards compatibility
+    from django.db.models.options import get_verbose_name as camel_case_to_spaces
+from django.conf import settings
 from mongoengine.fields import ReferenceField, ListField
 
 
@@ -23,7 +24,7 @@ def patch_document(function, instance, bound=True):
 
 
 def create_verbose_name(name):
-    name = get_verbose_name(name)
+    name = camel_case_to_spaces(name)
     name = name.replace('_', ' ')
     return name
 
@@ -106,6 +107,7 @@ class DocumentMetaWrapper(MutableMapping):
     has_auto_field = False
     object_name = None
     proxy = []
+    proxied_children = []
     parents = {}
     many_to_many = []
     _field_cache = None
@@ -152,12 +154,23 @@ class DocumentMetaWrapper(MutableMapping):
             if not hasattr(f, 'rel'):
                 # need a bit more for actual reference fields here
                 if isinstance(f, ReferenceField):
+                    # FIXME: Probably broken in Django 1.7
                     f.rel = Relation(f.document_type)
-                elif isinstance(f, ListField) and \
-                        isinstance(f.field, ReferenceField):
+                    f.is_relation = True
+                elif isinstance(f, ListField) and isinstance(f.field, ReferenceField):
+                    # FIXME: Probably broken in Django 1.7
                     f.field.rel = Relation(f.field.document_type)
+                    f.field.is_relation = True
                 else:
+                    f.many_to_many = None
+                    f.many_to_one = None
+                    f.one_to_many = None
+                    f.one_to_one = None
+                    f.related_model = None
+
+                    # FIXME: No longer used in Django 1.7?
                     f.rel = None
+                    f.is_relation = False
             if not hasattr(f, 'verbose_name') or f.verbose_name is None:
                 f.verbose_name = capfirst(create_verbose_name(f.name))
             if not hasattr(f, 'flatchoices'):
@@ -173,6 +186,8 @@ class DocumentMetaWrapper(MutableMapping):
                     isinstance(f.document_type._meta, (DocumentMetaWrapper, LazyDocumentMetaWrapper)) and \
                     self.document != f.document_type:
                 f.document_type._meta = LazyDocumentMetaWrapper(f.document_type)
+            if not hasattr(f, 'auto_created'):
+                f.auto_created = False
 
     def _init_pk(self):
         """
@@ -188,14 +203,13 @@ class DocumentMetaWrapper(MutableMapping):
             pk_field = None
         self.pk = PkWrapper(pk_field)
 
-        def _get_pk_val(self):
-            return self._pk_val
+        def _get_pk_val(obj):
+            return obj.pk
+        patch_document(_get_pk_val, self.document, False)  # document is a class...
 
         if pk_field is not None:
             self.pk.name = self.pk_name
             self.pk.attname = self.pk_name
-            self.document._pk_val = pk_field
-            patch_document(_get_pk_val, self.document)
         else:
             self.pk.fake = True
             # this is used in the admin and used to determine if the admin
@@ -206,8 +220,11 @@ class DocumentMetaWrapper(MutableMapping):
     @property
     def app_label(self):
         if self._app_label is None:
-            model_module = sys.modules[self.document.__module__]
-            self._app_label = model_module.__name__.split('.')[-2]
+            if self._meta.get('app_label'):
+                self._app_label = self._meta["app_label"]
+            else:
+                model_module = sys.modules[self.document.__module__]
+                self._app_label = model_module.__name__.split('.')[-2]
         return self._app_label
 
     @property
@@ -268,6 +285,9 @@ class DocumentMetaWrapper(MutableMapping):
         Returns the requested field by name. Raises FieldDoesNotExist on error.
         """
         return self.get_field_by_name(name)[0]
+
+    def get_fields(self, include_hidden=False):
+        return self.document._fields.values()
 
     @property
     def swapped(self):
@@ -332,6 +352,12 @@ class DocumentMetaWrapper(MutableMapping):
 
     def __len__(self):
         return self._meta.__len__()
+
+    def __cmp__(self, other):
+        return hash(self) == hash(other)
+
+    def __hash__(self):
+        return id(self)
 
     def get(self, key, default=None):
         try:

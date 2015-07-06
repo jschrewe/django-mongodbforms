@@ -15,7 +15,7 @@ except ImportError:
     from django.core.exceptions import ImproperlyConfigured
     from django.utils.importlib import import_module
     from django.utils import six
-    
+
     def import_by_path(dotted_path, error_prefix=''):
         """
         Import a dotted module path and return the attribute/class designated
@@ -52,6 +52,10 @@ def load_field_generator():
 def init_document_options(document):
     if not isinstance(document._meta, (DocumentMetaWrapper, LazyDocumentMetaWrapper)):
         document._meta = DocumentMetaWrapper(document)
+    # Workaround for Django 1.7+
+    document._deferred = False
+    # FIXME: Wrong implementation for Relations (https://github.com/django/django/blob/master/django/db/models/base.py#L601)
+    document.serializable_value = lambda self, field_name: self._meta.get_field(field_name)
     return document
 
 
