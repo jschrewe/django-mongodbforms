@@ -666,7 +666,6 @@ class BaseDocumentFormSet(BaseFormSet):
 
     def __init__(self, data=None, files=None, auto_id='id_%s', prefix=None,
                  queryset=[], **kwargs):
-
         if not isinstance(queryset, (list, BaseQuerySet)):
             queryset = [queryset]
         self.queryset = queryset
@@ -842,6 +841,7 @@ class EmbeddedDocumentFormSet(BaseDocumentFormSet):
 
     def __init__(self, data=None, files=None, save_as_new=False,
                  prefix=None, queryset=[], parent_document=None, **kwargs):
+
         if parent_document is not None:
             self.parent_document = parent_document
 
@@ -850,8 +850,11 @@ class EmbeddedDocumentFormSet(BaseDocumentFormSet):
             if parent_document is None:
                 self.parent_document = instance
 
-        queryset = getattr(self.parent_document,
-                           self.form._meta.embedded_field)
+        queryset = getattr(self.parent_document, self.form._meta.embedded_field)
+        if not isinstance(queryset, list) and queryset is None:
+            queryset = []
+        elif not isinstance(queryset, list):
+            queryset = [queryset, ]
 
         super(EmbeddedDocumentFormSet, self).__init__(data, files, save_as_new,
                                                       prefix, queryset,
@@ -968,8 +971,7 @@ def embeddedformset_factory(document, parent_document,
     You must provide ``fk_name`` if ``model`` has more than one ``ForeignKey``
     to ``parent_model``.
     """
-    emb_field = _get_embedded_field(
-        parent_document, document, emb_name=embedded_name)
+    emb_field = _get_embedded_field(parent_document, document, emb_name=embedded_name)
     if isinstance(emb_field, EmbeddedDocumentField):
         max_num = 1
     kwargs = {
